@@ -1,7 +1,7 @@
 // Frontend JS: uses fetch + FormData and XHR for progress
 
-const API_URL = 'api.php';
-const DOWNLOAD_BASE = 'download.php';
+const API_URL = 'nanocloud_api.php';
+const DOWNLOAD_BASE = 'nanocloud_download.php';
 // MAX_FILE_BYTES will be fetched from server (see GET?action=info)
 let MAX_FILE_BYTES = null; // integer bytes
 

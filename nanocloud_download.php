@@ -1,5 +1,5 @@
 <?php
-// download.php
+ // nanocloud_download.php
 // Serves files for download from the uploads directory, supporting nested directories securely.
 // Security:
 // - Only serves files from the configured uploads directory.
@@ -10,7 +10,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'config.php';
-require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'nanocloud_lib.php';
 
 $uploadDir = UPLOAD_DIR;
 $uploadDirReal = realpath($uploadDir);

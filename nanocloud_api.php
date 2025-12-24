@@ -1,5 +1,5 @@
 <?php
-// api.php
+// nanocloud_api.php
 // JSON API for listing, navigating, uploading and deleting files/directories under a root "uploads" directory.
 // Adds: directory support (list/open/up), create/delete directory, storage meter (free/total/used),
 // and transactional uploads with rollback cleanup on client disconnect.
@@ -10,7 +10,6 @@
 // - We verify resolved realpaths remain within root.
 //
 // Notes:
-// - Per-file and per-session upload caps remain at 2GB.
 // - Storage meter uses disk_total_space/disk_free_space for the filesystem hosting the uploads directory.
 
 declare(strict_types=1);
@@ -18,7 +17,7 @@ declare(strict_types=1);
 session_start();
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'config.php';
-require_once __DIR__ . DIRECTORY_SEPARATOR . 'lib.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'nanocloud_lib.php';
 
 // Upload root directory (single configurable place)
 $uploadDir = UPLOAD_DIR;
@@ -41,10 +40,13 @@ $tmpDir = get_tmp_dir();
 if (!is_dir($tmpDir)) {
     @mkdir($tmpDir, 0755, true);
 }
-// Helpers moved to lib.php (sanitize, path resolution, storage, send_json, rrmdir, etc.)
 
 /**
  * List items (dirs + files) in a given path.
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @return void Outputs JSON response with items, breadcrumbs, and storage info.
  */
 function handle_list(string $uploadDir, string $uploadDirReal): void
 {
@@ -162,11 +164,15 @@ try {
 }
 
 /**
- * Handle uploads into a given path with transactional temp + rollback on abort.
- * - Accepts multiple files via `files[]`.
- * - Validates caps.
- * - Moves to $tmpDir with unique .part name, then atomically renames into target dir when safe.
- * - On client disconnect, temp parts are deleted and finalization is skipped.
+ * Handle uploads into a given path using transactional temp + rollback on abort.
+ * Accepts multiple files via "files[]". Validates size caps and session limits,
+ * moves to $tmpDir with unique ".part" name, then atomically renames into the
+ * target directory when safe. On client disconnect, temp parts are deleted and finalization is skipped.
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @param string $tmpDir        Temporary directory for in-flight parts.
+ * @return void Outputs JSON response with per-file results and storage info.
  */
 function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir): void
 {
@@ -224,14 +230,14 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
 
         // Server-side size check (regardless of php.ini)
         if ($size > MAX_FILE_BYTES) {
-            $result['message'] = 'File exceeds maximum allowed size of 2 GB.';
+            $result['message'] = 'File exceeds maximum allowed size.';
             $results[] = $result;
             continue;
         }
 
         // Check per-session cumulative limit
         if ($sessionTotal + $size > MAX_SESSION_BYTES) {
-            $result['message'] = 'Per-session upload limit of 2 GB exceeded.';
+            $result['message'] = 'Per-session upload limit exceeded.';
             $results[] = $result;
             continue;
         }
@@ -325,11 +331,15 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
     ]);
 }
 
-// upload_error_message provided by lib.php
+ // upload_error_message provided by nanocloud_lib.php
 
 /**
  * Delete a file by name within a given path.
- * - Accepts POST "filename" and optional "path".
+ * Accepts POST "filename" and optional "path".
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @return void Outputs JSON indicating success/failure and storage info.
  */
 function handle_delete(string $uploadDir, string $uploadDirReal): void
 {
@@ -395,7 +405,11 @@ function handle_delete(string $uploadDir, string $uploadDirReal): void
 
 /**
  * Create a directory within a given path.
- * - Accepts POST "name" and optional "path".
+ * Accepts POST "name" and optional "path".
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @return void Outputs JSON indicating success/failure and storage info.
  */
 function handle_create_dir(string $uploadDir, string $uploadDirReal): void
 {
@@ -451,7 +465,11 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
 
 /**
  * Delete a directory (recursive) within a given path.
- * - Accepts POST "name" and optional "path".
+ * Accepts POST "name" and optional "path".
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @return void Outputs JSON indicating success/failure and storage info.
  */
 function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
 {

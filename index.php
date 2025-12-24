@@ -1,15 +1,15 @@
 <?php
 // index.php
-// Main HTML page with embedded JS/CSS. Adds directory support, breadcrumb navigation,
+// Main HTML page. Adds directory support, breadcrumb navigation,
 // create/delete directory, go up one level, storage meter, and nested downloads.
-// Assumes api.php and download.php are in the same directory.
+// Assumes nanocloud_api.php and nanocloud_download.php are in the same directory.
 
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>File Upload System</title>
+    <title>NanoCloud</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link rel="stylesheet" href="assets/style.css">
@@ -18,10 +18,10 @@
 <div class="container">
     <div class="header-row">
         <div>
-            <h1>File Upload</h1>
+            <h1>NanoCloud</h1>
             <p class="subtitle">
-                Upload multiple files, see upload progress, list existing files and directories, download or delete them.
-                No authentication or sharing is implemented.
+                A minimal, fast, self-hosted cloud server.
+                Click on file to stream/download.
             </p>
             <div id="globalMessages" class="messages"></div>
         </div>
@@ -87,6 +87,6 @@
 <!-- Floating upload action -->
 <button id="fabUpload" class="fab" title="Upload files">+</button>
 
-<script src="assets/app.js"></script>
+<script type="module" src="assets/js/main.js"></script>
 </body>
 </html>

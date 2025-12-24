@@ -1,5 +1,5 @@
 <?php
-// lib.php
+// nanocloud_lib.php
 // Shared helpers for the upload app: sanitizers, path resolvers, JSON helpers, storage info, recursive remove, etc.
 
 declare(strict_types=1);
