@@ -4,7 +4,7 @@
 import { DOWNLOAD_BASE } from '../state.js';
 import { joinPath, formatBytes, isOpenable } from '../utils.js';
 import { list as apiList, deleteFile as apiDeleteFile, deleteDir as apiDeleteDir } from '../nanocloudClient.js';
-import { setExistingNamesFromList, setCurrentPath, getCurrentPath } from '../state.js';
+import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh } from '../state.js';
 import { notifyUser } from './messages.js';
 
 /** @type {HTMLElement|null} */ let fileListEl = null;
@@ -38,6 +38,9 @@ export function initList(refs) {
   storageBarEl = refs.storageBarEl || null;
   listLoadingEl = refs.listLoadingEl || null;
   upBtn = refs.upBtn || null;
+  
+  // Register this module's fetchAndRenderList as the auto-refresh callback
+  registerAutoRefresh((requestId) => fetchAndRenderListWithTracking(requestId));
 }
 
 /**
@@ -74,6 +77,28 @@ export function updateStorage(storage) {
 }
 
 /**
+ * Request tracking version of fetchAndRenderList for auto-refresh.
+ * @param {number} requestId
+ */
+async function fetchAndRenderListWithTracking(requestId) {
+  console.log(`Processing request ID: ${requestId}`);
+
+  setListLoading(true);
+  try {
+    const resp = await apiList(getCurrentPath());
+    if (!resp.success) throw new Error(resp.message || 'Failed to load items');
+    setCurrentPath(resp.path || '');
+    updateBreadcrumbs(resp.breadcrumbs || []);
+    updateStorage(resp.storage);
+    renderItems(resp.items || []);
+  } catch (err) {
+    notifyUser(`Error loading items: ${err.message || err}`, 'error');
+  } finally {
+    setListLoading(false);
+  }
+}
+
+/**
  * Rebuild breadcrumbs and wire click navigation.
  * @param {string[]} breadcrumbs
  */
@@ -85,14 +110,13 @@ export function updateBreadcrumbs(breadcrumbs) {
   rootCrumb.className = 'crumb';
   rootCrumb.textContent = '/';
   rootCrumb.addEventListener('click', () => {
-    setCurrentPath('');
-    fetchAndRenderList();
+    setCurrentPath(''); // Navigate to root
+    requestRefresh(); // Use requestRefresh for auto-refresh with debouncing
   });
   breadcrumbsEl.appendChild(rootCrumb);
 
   if (Array.isArray(breadcrumbs) && breadcrumbs.length > 0) {
-    let accum = '';
-    breadcrumbs.forEach(seg => {
+    breadcrumbs.forEach((seg, index) => {
       const sep = document.createElement('span');
       sep.className = 'path-sep';
       sep.textContent = ' / ';
@@ -101,10 +125,14 @@ export function updateBreadcrumbs(breadcrumbs) {
       const crumb = document.createElement('span');
       crumb.className = 'crumb';
       crumb.textContent = seg;
-      accum = joinPath(accum, seg);
+      
+      // Build the path up to this segment
+      const currentPath = breadcrumbs.slice(0, index + 1).join('/');
+      
       crumb.addEventListener('click', () => {
-        setCurrentPath(accum);
-        fetchAndRenderList();
+        console.log('Breadcrumb clicked:', seg, 'navigating to:', currentPath);
+        setCurrentPath(currentPath);
+        requestRefresh(); // Use requestRefresh for auto-refresh with debouncing
       });
       breadcrumbsEl.appendChild(crumb);
     });
@@ -145,7 +173,8 @@ export function renderItems(items) {
       link.textContent = entry.name;
       link.addEventListener('click', () => {
         setCurrentPath(joinPath(getCurrentPath(), entry.name));
-        fetchAndRenderList();
+        console.log('requesting refresh');
+        requestRefresh(); // Use optimized request refresh
       });
       infoDiv.appendChild(link);
 
@@ -165,8 +194,8 @@ export function renderItems(items) {
             const resp = await apiDeleteDir(getCurrentPath(), entry.name);
             if (!resp.success) throw new Error(resp.message || 'Delete folder failed');
             notifyUser(`Deleted folder "${entry.name}".`, 'success');
-            updateStorage(resp.storage);
-            fetchAndRenderList();
+            // Don't call fetchAndRenderList directly - let state management handle it
+            requestRefresh(true); // Force refresh after successful operation
           } catch (err) {
             notifyUser(`Error deleting folder "${entry.name}": ${err.message || err}`, 'error');
           }
@@ -204,8 +233,8 @@ export function renderItems(items) {
             const resp = await apiDeleteFile(getCurrentPath(), entry.name);
             if (!resp.success) throw new Error(resp.message || 'Delete failed');
             notifyUser(`Deleted "${entry.name}".`, 'success');
-            updateStorage(resp.storage);
-            fetchAndRenderList();
+            // Don't call fetchAndRenderList directly - let state management handle it
+            requestRefresh(true); // Force refresh after successful operation
           } catch (err) {
             notifyUser(`Error deleting "${entry.name}": ${err.message || err}`, 'error');
           }

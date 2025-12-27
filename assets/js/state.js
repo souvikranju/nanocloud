@@ -16,6 +16,15 @@ let maxFileBytes = null;
 /** Set of names (files + dirs) present in the current directory for duplicate checks. */
 const nameSet = new Set();
 
+/** Request tracking for preventing duplicate refresh calls */
+let currentRequestId = 0;
+let pendingRefresh = false;
+let lastRefreshTime = 0;
+const REFRESH_DEBOUNCE_MS = 300; // Debounce rapid refresh calls - increased for better navigation UX
+
+/** Auto-refresh callback - set by list module */
+let autoRefreshCallback = null;
+
 /**
  * Get the current relative path ('' for root).
  * @returns {string}
@@ -87,4 +96,72 @@ export function markExistingName(name) {
  */
 export function hasExistingName(name) {
   return !!name && nameSet.has(name);
+}
+
+// =====================================
+// REQUEST TRACKING & AUTO-REFRESH
+// =====================================
+
+/**
+ * Register a callback for auto-refresh when state changes.
+ * @param {Function} callback
+ */
+export function registerAutoRefresh(callback) {
+  autoRefreshCallback = callback;
+}
+
+
+
+/**
+ * Trigger state change with auto-refresh.
+ * @param {string} path
+ */
+export function setCurrentPathWithRefresh(path) {
+  const oldPath = currentPath;
+  setCurrentPath(path);
+  
+  // Only auto-refresh if path actually changed
+  if (oldPath !== (path || '')) {
+    requestRefresh();
+  }
+}
+
+/**
+ * Request a refresh with debouncing and request tracking.
+ * @param {boolean} force - Force refresh even if debounced
+ * @returns {Promise<boolean>} - True if refresh was initiated
+ */
+export async function requestRefresh(force = false) {
+  const now = Date.now();
+  
+  // Check time-based debouncing (only if not forced)
+  if (!force && (now - lastRefreshTime < REFRESH_DEBOUNCE_MS)) {
+    console.log('not refreshing now - too soon after last refresh');
+    return false;
+  }
+
+  // Mark as pending and increment request ID
+  console.log('Starting refresh');
+  pendingRefresh = true;
+  currentRequestId++;
+  const requestId = currentRequestId;
+  lastRefreshTime = now;
+
+  try {
+    if (autoRefreshCallback) {
+      await autoRefreshCallback(requestId);
+    }
+    return true;
+  } catch (error) {
+    console.warn('Auto-refresh failed:', error);
+    return false;
+  } finally {
+    // Clear pending flag quickly to allow next refresh
+    setTimeout(() => {
+      if (currentRequestId === requestId) {
+        console.log('Clearing pending refresh');
+        pendingRefresh = false;
+      }
+    }, REFRESH_DEBOUNCE_MS);
+  }
 }

@@ -57,7 +57,7 @@ export function clearAll() {
  * Returns an object with small helpers to manipulate the item.
  * @param {string} displayName - original file name for display
  * @param {string} sanitized - sanitized name (for matching after server reply)
- * @returns {{setProgress:(pct:number)=>void, markComplete:()=>void, markError:()=>void, element:HTMLElement}}
+ * @returns {{setProgress:(pct:number)=>void, markComplete:()=>void, markError:()=>void, setErrorMessage:(msg:string)=>void, element:HTMLElement}}
  */
 export function createItem(displayName, sanitized) {
   const itemEl = document.createElement('div');
@@ -74,6 +74,11 @@ export function createItem(displayName, sanitized) {
   progressWrap.appendChild(progressBar);
   itemEl.appendChild(progressWrap);
 
+  const errorMsgEl = document.createElement('div');
+  errorMsgEl.className = 'error-message';
+  errorMsgEl.style.display = 'none';
+  itemEl.appendChild(errorMsgEl);
+
   if (uploadProgressList) uploadProgressList.appendChild(itemEl);
 
   function setProgress(pct) {
@@ -87,8 +92,12 @@ export function createItem(displayName, sanitized) {
   function markError() {
     itemEl.classList.add('error');
   }
+  function setErrorMessage(msg) {
+    errorMsgEl.textContent = msg;
+    errorMsgEl.style.display = 'block';
+  }
 
-  return { setProgress, markComplete, markError, element: itemEl };
+  return { setProgress, markComplete, markError, setErrorMessage, element: itemEl };
 }
 
 /**

@@ -3,37 +3,39 @@
 // Validates files, shows a progress panel, uploads with limited concurrency,
 // updates UI on completion, and refreshes the listing.
 
-import { getCurrentPath, getMaxFileBytes, hasExistingName, markExistingName } from './state.js';
+import { getCurrentPath, getMaxFileBytes, hasExistingName, markExistingName, requestRefresh } from './state.js';
 import { sanitizeFilename, formatBytes } from './utils.js';
 import { notifyUser } from './ui/messages.js';
 import { showPanel, hidePanel, hideModal, hideFab, showFab, clearAll, createItem } from './ui/progress.js';
 import { uploadSingle } from './nanocloudClient.js';
-import { fetchAndRenderList } from './ui/list.js';
 
 /**
  * Validate files against size limits and duplicates.
- * Returns array of { file: File, sanitized: string } to upload.
+ * Returns object with selected files to upload and invalid files with errors.
  * @param {File[]} files
- * @returns {Array<{file: File, sanitized: string}>}
+ * @returns {{selected: Array<{file: File, sanitized: string}>, invalidFiles: Array<{file: File, sanitized: string, error: string}>}}
  */
 function validateFiles(files) {
   const maxBytes = getMaxFileBytes();
   const selected = [];
+  const invalidFiles = [];
   for (const file of files) {
     const sanitized = sanitizeFilename(file.name);
     // Server limit (if known)
     if (maxBytes != null && file.size > maxBytes) {
-      notifyUser(`Skipped "${file.name}": exceeds server limit of ${formatBytes(maxBytes)}.`, 'error');
+      const error = `Skipped "${file.name}": exceeds server limit of ${formatBytes(maxBytes)}.`;
+      invalidFiles.push({ file, sanitized, error });
       continue;
     }
     // Client-side duplicate check in current directory
     if (hasExistingName(sanitized)) {
-      notifyUser(`Skipped "${file.name}": a file or folder with the same name already exists.`, 'error');
+      const error = `Skipped "${file.name}": a file or folder with the same name already exists.`;
+      invalidFiles.push({ file, sanitized, error });
       continue;
     }
     selected.push({ file, sanitized });
   }
-  return selected;
+  return { selected, invalidFiles };
 }
 
 /**
@@ -46,18 +48,25 @@ export async function uploadFiles(fileList, concurrency = 3) {
   const files = Array.from(fileList || []);
   if (files.length === 0) return;
 
-  const toUpload = validateFiles(files);
-  if (toUpload.length === 0) return;
+  const { selected: toUpload, invalidFiles } = validateFiles(files);
+  if (toUpload.length === 0 && invalidFiles.length === 0) return;
 
   // Prepare UI: show progress panel, hide modal and FAB while running
   showPanel();
   hideModal();
   hideFab();
 
-  // Create per-file UI entries
+  // Create per-file UI entries for valid files
   const uiMap = new Map();
   for (const { file, sanitized } of toUpload) {
     uiMap.set(sanitized, createItem(file.name, sanitized));
+  }
+
+  // Create UI entries for invalid files and show errors
+  for (const { file, sanitized, error } of invalidFiles) {
+    const ui = createItem(file.name, sanitized);
+    ui.markError();
+    ui.setErrorMessage(error);
   }
 
   // Simple worker-pool to limit concurrency
@@ -95,8 +104,8 @@ export async function uploadFiles(fileList, concurrency = 3) {
   for (let i = 0; i < limit; i++) workers.push(worker());
   await Promise.all(workers);
 
-  // Refresh list and storage once at the end
-  await fetchAndRenderList();
+  // Refresh list and storage once at the end using optimized request tracking
+  requestRefresh(true); // Force refresh after successful uploads
 
   // Leave progress visible briefly, then clear and bring back FAB
   setTimeout(() => {

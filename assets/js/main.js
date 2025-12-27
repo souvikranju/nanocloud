@@ -3,17 +3,29 @@
 // Wires DOM events, initializes UI modules, fetches server info and listings,
 // and delegates uploads to the uploader orchestrator.
 
-import { setCurrentPath, getCurrentPath, setMaxFileBytes, existingNames, hasExistingName } from './state.js';
+import { getCurrentPath, setMaxFileBytes, hasExistingName } from './state.js';
 import { parentPath, sanitizeSegment, formatBytes } from './utils.js';
 import { initMessages, notifyUser, clearModalMessages } from './ui/messages.js';
 import { initProgress, showFab } from './ui/progress.js';
-import { initList, fetchAndRenderList, updateStorage } from './ui/list.js';
+import { initList, fetchAndRenderList } from './ui/list.js';
+import { requestRefresh as stateRequestRefresh, setCurrentPathWithRefresh } from './state.js';
 import { info as apiInfo, createDir as apiCreateDir } from './nanocloudClient.js';
 import { uploadFiles } from './uploader.js';
 
-// DOM lookups (kept centralized to avoid scattering ids)
-const dom = {
-  // Modal + FAB
+// =====================================
+// CONFIGURATION & CONSTANTS
+// =====================================
+const CONFIG = {
+  DRAG_HOVER_CLASS: 'dragover',
+  MODAL_HIDDEN_CLASS: 'hidden',
+  MODAL_ARIA_HIDDEN: 'aria-hidden'
+};
+
+// =====================================
+// DOM REFERENCES (grouped by concern)
+// =====================================
+const DOM = {
+  // Modal & FAB elements
   fabUpload: document.getElementById('fabUpload'),
   uploadModal: document.getElementById('uploadModal'),
   modalClose: document.getElementById('modalClose'),
@@ -21,14 +33,15 @@ const dom = {
   modalDropArea: document.getElementById('modalDropArea'),
   serverLimitText: document.getElementById('serverLimitText'),
 
+  // Progress tracking
   uploadSection: document.querySelector('.upload-section'),
   uploadProgressList: document.getElementById('uploadProgressList'),
 
-  // Global + modal messages
+  // Message containers
   globalMessages: document.getElementById('globalMessages'),
   modalMessages: document.getElementById('modalMessages'),
 
-  // File list section
+  // File list & navigation
   fileList: document.getElementById('fileList'),
   emptyState: document.getElementById('emptyState'),
   breadcrumbs: document.getElementById('breadcrumbs'),
@@ -42,152 +55,223 @@ const dom = {
   storageBar: document.getElementById('storageBar'),
 };
 
-// Initialize message and progress modules with DOM references
-initMessages({
-  globalMessagesEl: dom.globalMessages,
-  modalMessagesEl: dom.modalMessages,
-  uploadModal: dom.uploadModal,
-});
+// =====================================
+// MODULE INITIALIZATION
+// =====================================
+function initializeModules() {
+  // Initialize message system
+  initMessages({
+    globalMessagesEl: DOM.globalMessages,
+    modalMessagesEl: DOM.modalMessages,
+    uploadModal: DOM.uploadModal,
+  });
 
-initProgress({
-  uploadSection: dom.uploadSection,
-  uploadProgressList: dom.uploadProgressList,
-  fabBtn: dom.fabUpload,
-  uploadModal: dom.uploadModal,
-});
+  // Initialize progress tracking
+  initProgress({
+    uploadSection: DOM.uploadSection,
+    uploadProgressList: DOM.uploadProgressList,
+    fabBtn: DOM.fabUpload,
+    uploadModal: DOM.uploadModal,
+  });
 
-// Initialize list UI module (render + controls)
-initList({
-  fileListEl: dom.fileList,
-  emptyStateEl: dom.emptyState,
-  breadcrumbsEl: dom.breadcrumbs,
-  refreshBtn: dom.refreshBtn,
-  storageTextEl: dom.storageText,
-  storageBarEl: dom.storageBar,
-  listLoadingEl: dom.listLoading,
-  upBtn: dom.upBtn,
-});
-
-// Helpers to show/hide modal
-function showModal() {
-  dom.uploadModal.classList.remove('hidden');
-  dom.uploadModal.setAttribute('aria-hidden', 'false');
+  // Initialize file list UI
+  initList({
+    fileListEl: DOM.fileList,
+    emptyStateEl: DOM.emptyState,
+    breadcrumbsEl: DOM.breadcrumbs,
+    refreshBtn: DOM.refreshBtn,
+    storageTextEl: DOM.storageText,
+    storageBarEl: DOM.storageBar,
+    listLoadingEl: DOM.listLoading,
+    upBtn: DOM.upBtn,
+  });
 }
+
+// =====================================
+// EVENT HANDLERS - MODAL MANAGEMENT
+// =====================================
+function showModal() {
+  DOM.uploadModal.classList.remove(CONFIG.MODAL_HIDDEN_CLASS);
+  DOM.uploadModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'false');
+}
+
 function hideModal() {
-  dom.uploadModal.classList.add('hidden');
-  dom.uploadModal.setAttribute('aria-hidden', 'true');
+  DOM.uploadModal.classList.add(CONFIG.MODAL_HIDDEN_CLASS);
+  DOM.uploadModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'true');
   clearModalMessages();
 }
 
-// Wire FAB -> open modal
-if (dom.fabUpload) {
-  dom.fabUpload.addEventListener('click', showModal);
+function setupModalEventHandlers() {
+  // FAB -> open modal
+  if (DOM.fabUpload) {
+    DOM.fabUpload.addEventListener('click', showModal);
+  }
+
+  // Modal close button
+  if (DOM.modalClose) {
+    DOM.modalClose.addEventListener('click', hideModal);
+  }
+
+  // Modal file input
+  if (DOM.modalFileInput) {
+    DOM.modalFileInput.addEventListener('change', () => {
+      const files = DOM.modalFileInput.files;
+      if (files && files.length > 0) {
+        uploadFiles(files);
+        // Clear the file input so the same file can be selected again
+        DOM.modalFileInput.value = '';
+      }
+    });
+  }
 }
 
-// Wire modal close
-if (dom.modalClose) {
-  dom.modalClose.addEventListener('click', hideModal);
+// =====================================
+// EVENT HANDLERS - DRAG & DROP
+// =====================================
+function setupDragDropHandlers() {
+  setupDropArea(DOM.modalDropArea);
 }
 
-// Wire modal file input -> upload
-if (dom.modalFileInput) {
-  dom.modalFileInput.addEventListener('change', () => {
-    const files = dom.modalFileInput.files;
-    if (files && files.length > 0) {
-      uploadFiles(files);
-    }
-  });
-}
+function setupDropArea(element) {
+  if (!element) return;
 
-// Drag & drop helpers
-function setupDropArea(el) {
-  if (!el) return;
+  // Handle drag enter/over
   ['dragenter', 'dragover'].forEach(eventName => {
-    el.addEventListener(eventName, e => {
-      e.preventDefault();
-      e.stopPropagation();
-      el.classList.add('dragover');
-    }, false);
+    element.addEventListener(eventName, handleDragEnterOver, false);
   });
+
+  // Handle drag leave/drop
   ['dragleave', 'drop'].forEach(eventName => {
-    el.addEventListener(eventName, e => {
-      e.preventDefault();
-      e.stopPropagation();
-      el.classList.remove('dragover');
-    }, false);
+    element.addEventListener(eventName, handleDragLeaveDrop, false);
   });
-  el.addEventListener('drop', e => {
-    const dt = e.dataTransfer;
-    const files = dt && dt.files;
-    if (files && files.length > 0) {
-      uploadFiles(files);
-    }
-  });
+
+  // Handle file drop
+  element.addEventListener('drop', handleFileDrop, false);
 }
 
-// Wire drop areas (modal)
-setupDropArea(dom.modalDropArea);
-
-// Navigation: Up
-if (dom.upBtn) {
-  dom.upBtn.addEventListener('click', () => {
-    if (getCurrentPath() === '') return;
-    setCurrentPath(parentPath(getCurrentPath()));
-    fetchAndRenderList();
-  });
+function handleDragEnterOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.currentTarget.classList.add(CONFIG.DRAG_HOVER_CLASS);
 }
 
-// Create new folder
-if (dom.newFolderBtn) {
-  dom.newFolderBtn.addEventListener('click', async () => {
-    const name = prompt('New folder name:');
-    if (name == null) return;
-    const trimmed = String(name).trim();
-    if (trimmed === '') {
-      notifyUser('Folder name cannot be empty.', 'error');
-      return;
-    }
-    // Client-side duplicate check (raw and sanitized variants)
-    const sanitized = sanitizeSegment(trimmed);
-    if (hasExistingName(trimmed) || (sanitized && hasExistingName(sanitized))) {
-      notifyUser(`Folder "${trimmed}" already exists.`, 'error');
-      return;
-    }
-    try {
-      const resp = await apiCreateDir(getCurrentPath(), trimmed);
-      if (!resp.success) throw new Error(resp.message || 'Create folder failed');
-      notifyUser(`Created folder "${trimmed}".`, 'success');
-      updateStorage(resp.storage);
-      fetchAndRenderList();
-    } catch (err) {
-      notifyUser(`Error creating folder: ${err.message || err}`, 'error');
-    }
-  });
+function handleDragLeaveDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.currentTarget.classList.remove(CONFIG.DRAG_HOVER_CLASS);
 }
 
-// Refresh listing
-if (dom.refreshBtn) {
-  dom.refreshBtn.addEventListener('click', () => {
-    fetchAndRenderList();
-  });
+function handleFileDrop(event) {
+  const dataTransfer = event.dataTransfer;
+  const files = dataTransfer && dataTransfer.files;
+  if (files && files.length > 0) {
+    uploadFiles(files);
+  }
 }
 
-// Initial boot: fetch server limits, update UI text, then load listing
-(async function boot() {
+// =====================================
+// EVENT HANDLERS - NAVIGATION
+// =====================================
+function setupNavigationEventHandlers() {
+  // Up button
+  if (DOM.upBtn) {
+    DOM.upBtn.addEventListener('click', handleNavigationUp);
+  }
+
+  // New folder button
+  if (DOM.newFolderBtn) {
+    DOM.newFolderBtn.addEventListener('click', handleCreateFolder);
+  }
+
+  // Refresh button
+  if (DOM.refreshBtn) {
+    DOM.refreshBtn.addEventListener('click', () => {
+      stateRequestRefresh(true); // Force refresh with debouncing
+    });
+  }
+}
+
+function handleNavigationUp() {
+  if (getCurrentPath() === '') return;
+  setCurrentPathWithRefresh(parentPath(getCurrentPath())); // Use optimized state change with auto-refresh
+}
+
+async function handleCreateFolder() {
+  const name = prompt('New folder name:');
+  if (name == null) return;
+
+  const trimmed = String(name).trim();
+  if (trimmed === '') {
+    notifyUser('Folder name cannot be empty.', 'error');
+    return;
+  }
+
+  // Client-side duplicate check (raw and sanitized variants)
+  const sanitized = sanitizeSegment(trimmed);
+  if (hasExistingName(trimmed) || (sanitized && hasExistingName(sanitized))) {
+    notifyUser(`Folder "${trimmed}" already exists.`, 'error');
+    return;
+  }
+
+  try {
+    const resp = await apiCreateDir(getCurrentPath(), trimmed);
+    if (!resp.success) throw new Error(resp.message || 'Create folder failed');
+    notifyUser(`Created folder "${trimmed}".`, 'success');
+    // Don't call fetchAndRenderList directly - let state management handle it
+    stateRequestRefresh(true); // Force refresh after successful operation
+  } catch (err) {
+    notifyUser(`Error creating folder: ${err.message || err}`, 'error');
+  }
+}
+
+// =====================================
+// APPLICATION BOOTSTRAP
+// =====================================
+async function initializeApp() {
+  try {
+    // Initialize all UI modules
+    initializeModules();
+
+    // Setup all event handlers
+    setupModalEventHandlers();
+    setupDragDropHandlers();
+    setupNavigationEventHandlers();
+
+    // Fetch server information
+    await fetchServerInfo();
+
+    // Load initial file listing
+    await fetchAndRenderList();
+
+    // Ensure FAB is visible on first load
+    showFab();
+
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
+    notifyUser('Failed to initialize application', 'error');
+  }
+}
+
+async function fetchServerInfo() {
   try {
     const data = await apiInfo();
     if (data && data.success) {
       setMaxFileBytes(data.maxFileBytes ?? null);
-      if (dom.serverLimitText) {
-        const mb = (data.maxFileBytes != null) ? formatBytes(data.maxFileBytes) : 'unknown';
-        dom.serverLimitText.textContent = `Server limit: ${mb}`;
+      if (DOM.serverLimitText) {
+        const maxSize = (data.maxFileBytes != null) ? formatBytes(data.maxFileBytes) : 'unknown';
+        DOM.serverLimitText.textContent = `Server limit: ${maxSize}`;
       }
     }
-  } catch {
-    // ignore (keep client behavior safe)
-  } finally {
-    await fetchAndRenderList();
-    // Ensure FAB is visible on first load
-    showFab();
+  } catch (error) {
+    // Ignore errors to keep client behavior safe
+    console.warn('Failed to fetch server info:', error);
   }
-})();
+}
+
+// =====================================
+// SINGLE ENTRY POINT
+// =====================================
+// Start the application
+initializeApp().catch(error => {
+  console.error('Application failed to start:', error);
+});
