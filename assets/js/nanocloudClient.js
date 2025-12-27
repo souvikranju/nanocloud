@@ -131,3 +131,53 @@ export function uploadSingle(file, path, onProgress) {
     xhr.send(formData);
   });
 }
+
+/**
+ * Rename a file within the given path.
+ * @param {string} path
+ * @param {string} filename
+ * @param {string} newName
+ * @returns {Promise<any>}
+ */
+export function renameFile(path, filename, newName) {
+  const form = new FormData();
+  form.append('action', 'rename_file');
+  form.append('path', path);
+  form.append('filename', filename);
+  form.append('newName', newName);
+  return postForm(form);
+}
+
+/**
+ * Rename a directory within the given path.
+ * @param {string} path
+ * @param {string} name
+ * @param {string} newName
+ * @returns {Promise<any>}
+ */
+export function renameDir(path, name, newName) {
+  const form = new FormData();
+  form.append('action', 'rename_dir');
+  form.append('path', path);
+  form.append('name', name);
+  form.append('newName', newName);
+  return postForm(form);
+}
+
+/**
+ * Move a file or directory to a different path.
+ * @param {string} path - Source path
+ * @param {string} itemType - 'file' or 'dir'
+ * @param {string} itemName - Name of item to move
+ * @param {string} targetPath - Target directory path
+ * @returns {Promise<any>}
+ */
+export function moveItem(path, itemType, itemName, targetPath) {
+  const form = new FormData();
+  form.append('action', 'move');
+  form.append('path', path);
+  form.append('itemType', itemType);
+  form.append('itemName', itemName);
+  form.append('targetPath', targetPath);
+  return postForm(form);
+}

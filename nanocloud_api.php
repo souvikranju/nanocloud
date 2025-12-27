@@ -148,6 +148,15 @@ try {
         case 'delete_dir':
             handle_delete_dir($uploadDir, $uploadDirReal);
             break;
+        case 'rename_file':
+            handle_rename_file($uploadDir, $uploadDirReal);
+            break;
+        case 'rename_dir':
+            handle_rename_dir($uploadDir, $uploadDirReal);
+            break;
+        case 'move':
+            handle_move($uploadDir, $uploadDirReal);
+            break;
         case 'info':
             send_json([
                 'success' => true,
@@ -540,6 +549,325 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
         'success' => true,
         'message' => 'Directory deleted.',
         'name'    => $segment,
+        'storage' => storage_info($uploadDir),
+    ]);
+}
+
+/**
+ * Rename a file within a given path.
+ * Accepts POST "filename" and "newName".
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @return void Outputs JSON indicating success/failure and storage info.
+ */
+function handle_rename_file(string $uploadDir, string $uploadDirReal): void
+{
+    $rel = normalize_rel_path($_POST['path'] ?? '');
+    $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
+    if ($resolved === null) {
+        send_json([
+            'success' => false,
+            'message' => 'Target path not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+    $dirAbs = $resolved['abs'];
+
+    $filename = $_POST['filename'] ?? '';
+    $newName = $_POST['newName'] ?? '';
+    
+    if ($filename === '' || $newName === '') {
+        send_json([
+            'success' => false,
+            'message' => 'Missing filename or new name.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    $sanitizedOld = sanitize_segment($filename);
+    $sanitizedNew = sanitize_filename($newName);
+    
+    if ($sanitizedOld === '' || $sanitizedNew === '') {
+        send_json([
+            'success' => false,
+            'message' => 'Invalid filename or new name.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    $oldPath = $dirAbs . DIRECTORY_SEPARATOR . $sanitizedOld;
+    $newPath = $dirAbs . DIRECTORY_SEPARATOR . $sanitizedNew;
+
+    if (!is_file($oldPath)) {
+        send_json([
+            'success' => false,
+            'message' => 'File not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    if (file_exists($newPath)) {
+        send_json([
+            'success' => false,
+            'message' => 'A file with the new name already exists.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    if (!@rename($oldPath, $newPath)) {
+        send_json([
+            'success' => false,
+            'message' => 'Failed to rename file.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    send_json([
+        'success' => true,
+        'message' => 'File renamed.',
+        'filename' => $sanitizedOld,
+        'newName' => $sanitizedNew,
+        'storage' => storage_info($uploadDir),
+    ]);
+}
+
+/**
+ * Rename a directory within a given path.
+ * Accepts POST "name" and "newName".
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @return void Outputs JSON indicating success/failure and storage info.
+ */
+function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
+{
+    $rel = normalize_rel_path($_POST['path'] ?? '');
+    $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
+    if ($resolved === null) {
+        send_json([
+            'success' => false,
+            'message' => 'Target path not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+    $dirAbs = $resolved['abs'];
+
+    $name = $_POST['name'] ?? '';
+    $newName = $_POST['newName'] ?? '';
+    
+    if ($name === '' || $newName === '') {
+        send_json([
+            'success' => false,
+            'message' => 'Missing name or new name.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    $sanitizedOld = sanitize_segment($name);
+    $sanitizedNew = sanitize_segment($newName);
+    
+    if ($sanitizedOld === '' || $sanitizedNew === '') {
+        send_json([
+            'success' => false,
+            'message' => 'Invalid name or new name.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    $oldPath = $dirAbs . DIRECTORY_SEPARATOR . $sanitizedOld;
+    $newPath = $dirAbs . DIRECTORY_SEPARATOR . $sanitizedNew;
+    
+    $oldPathReal = realpath($oldPath);
+    if ($oldPathReal === false || !is_dir($oldPathReal)) {
+        send_json([
+            'success' => false,
+            'message' => 'Directory not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    // Ensure within root
+    if (!is_within_root($uploadDirReal, $oldPathReal)) {
+        send_json([
+            'success' => false,
+            'message' => 'Invalid directory path.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    // Prevent renaming root itself by mistake
+    if ($oldPathReal === $uploadDirReal) {
+        send_json([
+            'success' => false,
+            'message' => 'Cannot rename root directory.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    if (file_exists($newPath)) {
+        send_json([
+            'success' => false,
+            'message' => 'A directory with the new name already exists.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    if (!@rename($oldPath, $newPath)) {
+        send_json([
+            'success' => false,
+            'message' => 'Failed to rename directory.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    send_json([
+        'success' => true,
+        'message' => 'Directory renamed.',
+        'name' => $sanitizedOld,
+        'newName' => $sanitizedNew,
+        'storage' => storage_info($uploadDir),
+    ]);
+}
+
+/**
+ * Move a file or directory to a different path.
+ * Accepts POST "itemType" (file|dir), "itemName", and "targetPath".
+ *
+ * @param string $uploadDir     Root upload directory (config value).
+ * @param string $uploadDirReal Realpath of the root upload directory.
+ * @return void Outputs JSON indicating success/failure and storage info.
+ */
+function handle_move(string $uploadDir, string $uploadDirReal): void
+{
+    $rel = normalize_rel_path($_POST['path'] ?? '');
+    $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
+    if ($resolved === null) {
+        send_json([
+            'success' => false,
+            'message' => 'Source path not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+    $sourceDirAbs = $resolved['abs'];
+
+    $itemType = $_POST['itemType'] ?? '';
+    $itemName = $_POST['itemName'] ?? '';
+    $targetPath = $_POST['targetPath'] ?? '';
+    
+    if ($itemType === '' || $itemName === '' || $targetPath === '') {
+        send_json([
+            'success' => false,
+            'message' => 'Missing item type, item name, or target path.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    if (!in_array($itemType, ['file', 'dir'])) {
+        send_json([
+            'success' => false,
+            'message' => 'Invalid item type. Must be "file" or "dir".',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    $sanitizedItemName = $itemType === 'file' ? sanitize_segment($itemName) : sanitize_segment($itemName);
+    if ($sanitizedItemName === '') {
+        send_json([
+            'success' => false,
+            'message' => 'Invalid item name.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    $targetResolved = resolve_dir($uploadDirReal, $uploadDir, normalize_rel_path($targetPath));
+    if ($targetResolved === null) {
+        send_json([
+            'success' => false,
+            'message' => 'Target path not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+    $targetDirAbs = $targetResolved['abs'];
+
+    $sourcePath = $sourceDirAbs . DIRECTORY_SEPARATOR . $sanitizedItemName;
+    $targetPathFull = $targetDirAbs . DIRECTORY_SEPARATOR . $sanitizedItemName;
+    
+    // Check if source exists
+    if ($itemType === 'file' && !is_file($sourcePath)) {
+        send_json([
+            'success' => false,
+            'message' => 'File not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+    
+    if ($itemType === 'dir' && !is_dir($sourcePath)) {
+        send_json([
+            'success' => false,
+            'message' => 'Directory not found.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    // Prevent moving root directory
+    $sourcePathReal = realpath($sourcePath);
+    if ($itemType === 'dir' && $sourcePathReal === $uploadDirReal) {
+        send_json([
+            'success' => false,
+            'message' => 'Cannot move root directory.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    // Check if target already exists
+    if (file_exists($targetPathFull)) {
+        send_json([
+            'success' => false,
+            'message' => 'An item with the same name already exists in the target directory.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    if (!@rename($sourcePath, $targetPathFull)) {
+        send_json([
+            'success' => false,
+            'message' => 'Failed to move item.',
+            'storage' => storage_info($uploadDir),
+        ]);
+        return;
+    }
+
+    send_json([
+        'success' => true,
+        'message' => 'Item moved successfully.',
+        'itemType' => $itemType,
+        'itemName' => $sanitizedItemName,
+        'fromPath' => $resolved['rel'],
+        'toPath' => $targetResolved['rel'],
         'storage' => storage_info($uploadDir),
     ]);
 }
