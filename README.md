@@ -32,7 +32,6 @@ Tested environment: Raspberry Pi (Raspberry Pi OS) with lighttpd and PHP 8.4.
 ├─ nanocloud_lib.php           # Shared helpers/utility functions
 ├─ assets/
 │  ├─ style.css                # UI styles
-│  ├─ app.js                   # Legacy monolithic frontend (no longer used)
 │  └─ js/
 │     ├─ main.js               # Entrypoint: boot + DOM wiring
 │     ├─ nanocloudClient.js    # Fetch/XHR wrappers for API endpoints

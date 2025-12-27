@@ -35,13 +35,6 @@
     </div>
 
     <div class="upload-section" style="display:none;">
-        <!-- kept for backward-compat but hidden; uploads now via modal -->
-        <div class="upload-controls">
-            <input type="file" id="fileInput" multiple>
-        </div>
-        <div class="drop-area" id="dropArea">
-            Drag and drop files here to upload
-        </div>
         <div class="messages" id="messages"></div>
         <div class="upload-progress-list" id="uploadProgressList"></div>
     </div>

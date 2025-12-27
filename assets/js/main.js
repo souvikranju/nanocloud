@@ -21,9 +21,7 @@ const dom = {
   modalDropArea: document.getElementById('modalDropArea'),
   serverLimitText: document.getElementById('serverLimitText'),
 
-  // Legacy upload section + drop area (kept for backward-compat UI)
   uploadSection: document.querySelector('.upload-section'),
-  dropArea: document.getElementById('dropArea'),
   uploadProgressList: document.getElementById('uploadProgressList'),
 
   // Global + modal messages
@@ -127,9 +125,8 @@ function setupDropArea(el) {
   });
 }
 
-// Wire drop areas (modal + page)
+// Wire drop areas (modal)
 setupDropArea(dom.modalDropArea);
-setupDropArea(dom.dropArea);
 
 // Navigation: Up
 if (dom.upBtn) {
