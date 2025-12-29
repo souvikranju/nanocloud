@@ -5,7 +5,7 @@
 
 import { getCurrentPath, getMaxFileBytes, hasExistingName, markExistingName, requestRefresh } from './state.js';
 import { sanitizeFilename, formatBytes } from './utils.js';
-import { notifyUser } from './ui/messages.js';
+import { showError } from './ui/toast.js';
 import { showPanel, hidePanel, hideModal, hideFab, showFab, clearAll, createItem } from './ui/progress.js';
 import { uploadSingle } from './nanocloudClient.js';
 
@@ -88,12 +88,12 @@ export async function uploadFiles(fileList, concurrency = 3) {
           ui.markError();
           const fname = res && res.filename ? res.filename : file.name;
           const msg = res && res.message ? res.message : 'Upload error';
-          notifyUser(`Failed "${fname}": ${msg}`, 'error');
+          showError(`Failed "${fname}": ${msg}`);
         }
         results.push(res);
       } catch (err) {
         ui.markError();
-        notifyUser(`Upload failed for "${file.name}": ${err.message || err}`, 'error');
+        showError(`Upload failed for "${file.name}": ${err.message || err}`);
         results.push({ success: false, filename: file.name, message: String(err) });
       }
     }

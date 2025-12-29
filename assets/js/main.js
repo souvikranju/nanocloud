@@ -1,13 +1,13 @@
 // main.js
-// Frontend entrypoint (ES module).
+// Modern frontend entrypoint (ES module).
 // Wires DOM events, initializes UI modules, fetches server info and listings,
 // and delegates uploads to the uploader orchestrator.
 
 import { getCurrentPath, setMaxFileBytes, hasExistingName } from './state.js';
 import { parentPath, sanitizeSegment, formatBytes } from './utils.js';
-import { initMessages, notifyUser, clearModalMessages } from './ui/messages.js';
 import { initProgress, showFab } from './ui/progress.js';
 import { initList, fetchAndRenderList } from './ui/list.js';
+import { initToast, showSuccess, showError, showInfo } from './ui/toast.js';
 import { requestRefresh as stateRequestRefresh, setCurrentPathWithRefresh } from './state.js';
 import { info as apiInfo, createDir as apiCreateDir } from './nanocloudClient.js';
 import { uploadFiles } from './uploader.js';
@@ -34,12 +34,12 @@ const DOM = {
   serverLimitText: document.getElementById('serverLimitText'),
 
   // Progress tracking
-  uploadSection: document.querySelector('.upload-section'),
+  uploadSection: document.getElementById('uploadSection'),
   uploadProgressList: document.getElementById('uploadProgressList'),
+  closeUploadBtn: document.getElementById('closeUploadBtn'),
 
   // Message containers
-  globalMessages: document.getElementById('globalMessages'),
-  modalMessages: document.getElementById('modalMessages'),
+  toastContainer: document.getElementById('toastContainer'),
 
   // File list & navigation
   fileList: document.getElementById('fileList'),
@@ -50,6 +50,14 @@ const DOM = {
   upBtn: document.getElementById('upBtn'),
   newFolderBtn: document.getElementById('newFolderBtn'),
 
+  // View controls
+  gridViewBtn: document.getElementById('gridViewBtn'),
+  listViewBtn: document.getElementById('listViewBtn'),
+
+  // Selection system
+  selectionBar: document.getElementById('selectionBar'),
+  selectionInfo: document.getElementById('selectionInfo'),
+
   // Storage meter
   storageText: document.getElementById('storageText'),
   storageBar: document.getElementById('storageBar'),
@@ -59,12 +67,11 @@ const DOM = {
 // MODULE INITIALIZATION
 // =====================================
 function initializeModules() {
-  // Initialize message system
-  initMessages({
-    globalMessagesEl: DOM.globalMessages,
-    modalMessagesEl: DOM.modalMessages,
-    uploadModal: DOM.uploadModal,
+  // Initialize toast notification system
+  initToast({
+    toastContainer: DOM.toastContainer,
   });
+
 
   // Initialize progress tracking
   initProgress({
@@ -98,7 +105,6 @@ function showModal() {
 function hideModal() {
   DOM.uploadModal.classList.add(CONFIG.MODAL_HIDDEN_CLASS);
   DOM.uploadModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'true');
-  clearModalMessages();
 }
 
 function setupModalEventHandlers() {
@@ -112,14 +118,33 @@ function setupModalEventHandlers() {
     DOM.modalClose.addEventListener('click', hideModal);
   }
 
+  // Upload section close button
+  if (DOM.closeUploadBtn) {
+    DOM.closeUploadBtn.addEventListener('click', () => {
+      if (DOM.uploadSection) {
+        DOM.uploadSection.classList.remove('visible');
+      }
+    });
+  }
+
   // Modal file input
   if (DOM.modalFileInput) {
     DOM.modalFileInput.addEventListener('change', () => {
       const files = DOM.modalFileInput.files;
       if (files && files.length > 0) {
+        hideModal();
         uploadFiles(files);
         // Clear the file input so the same file can be selected again
         DOM.modalFileInput.value = '';
+      }
+    });
+  }
+
+  // Make drop area clickable
+  if (DOM.modalDropArea) {
+    DOM.modalDropArea.addEventListener('click', () => {
+      if (DOM.modalFileInput) {
+        DOM.modalFileInput.click();
       }
     });
   }
@@ -165,6 +190,7 @@ function handleFileDrop(event) {
   const dataTransfer = event.dataTransfer;
   const files = dataTransfer && dataTransfer.files;
   if (files && files.length > 0) {
+    hideModal();
     uploadFiles(files);
   }
 }
@@ -202,25 +228,25 @@ async function handleCreateFolder() {
 
   const trimmed = String(name).trim();
   if (trimmed === '') {
-    notifyUser('Folder name cannot be empty.', 'error');
+    showError('Folder name cannot be empty.');
     return;
   }
 
   // Client-side duplicate check (raw and sanitized variants)
   const sanitized = sanitizeSegment(trimmed);
   if (hasExistingName(trimmed) || (sanitized && hasExistingName(sanitized))) {
-    notifyUser(`Folder "${trimmed}" already exists.`, 'error');
+    showError(`Folder "${trimmed}" already exists.`);
     return;
   }
 
   try {
     const resp = await apiCreateDir(getCurrentPath(), trimmed);
     if (!resp.success) throw new Error(resp.message || 'Create folder failed');
-    notifyUser(`Created folder "${trimmed}".`, 'success');
+    showSuccess(`Created folder "${trimmed}".`);
     // Don't call fetchAndRenderList directly - let state management handle it
     stateRequestRefresh(true); // Force refresh after successful operation
   } catch (err) {
-    notifyUser(`Error creating folder: ${err.message || err}`, 'error');
+    showError(`Error creating folder: ${err.message || err}`);
   }
 }
 
@@ -236,6 +262,7 @@ async function initializeApp() {
     setupModalEventHandlers();
     setupDragDropHandlers();
     setupNavigationEventHandlers();
+    setupGlobalEventHandlers();
 
     // Fetch server information
     await fetchServerInfo();
@@ -246,9 +273,12 @@ async function initializeApp() {
     // Ensure FAB is visible on first load
     showFab();
 
+    // Show welcome message
+    showInfo('Welcome to NanoCloud! Upload files using the + button or drag and drop.');
+
   } catch (error) {
     console.error('Failed to initialize app:', error);
-    notifyUser('Failed to initialize application', 'error');
+    showError('Failed to initialize application');
   }
 }
 
@@ -266,6 +296,73 @@ async function fetchServerInfo() {
     // Ignore errors to keep client behavior safe
     console.warn('Failed to fetch server info:', error);
   }
+}
+
+// =====================================
+// GLOBAL EVENT HANDLERS
+// =====================================
+function setupGlobalEventHandlers() {
+  // Global drag and drop for the entire page
+  let dragCounter = 0;
+  
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    if (dragCounter === 1) {
+      document.body.classList.add('drag-active');
+    }
+  });
+  
+  document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter === 0) {
+      document.body.classList.remove('drag-active');
+    }
+  });
+  
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+  
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    document.body.classList.remove('drag-active');
+    
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      uploadFiles(files);
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    // Upload shortcut (Ctrl/Cmd + U)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+      e.preventDefault();
+      showModal();
+    }
+    
+    // Refresh shortcut (F5 or Ctrl/Cmd + R)
+    if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
+      e.preventDefault();
+      stateRequestRefresh(true);
+    }
+  });
+
+  // Handle browser back/forward
+  window.addEventListener('popstate', () => {
+    // Could implement navigation history here
+  });
+
+  // Handle visibility change (pause/resume operations when tab is hidden)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      // Refresh when tab becomes visible again
+      stateRequestRefresh();
+    }
+  });
 }
 
 // =====================================
