@@ -287,7 +287,8 @@ export function renderItems(items) {
   currentItems = items || [];
   fileListEl.innerHTML = '';
   
-  clearSelection();
+  // Don't clear selection on refresh - preserve user's selection
+  // clearSelection();
   
   setExistingNamesFromList(currentItems);
   
@@ -361,12 +362,26 @@ function renderGridView(items) {
     li.appendChild(metaEl);
     li.appendChild(actionsEl);
     
+    // Apply selection state if item is selected
+    if (isSelected(entry.name)) {
+      li.classList.add('selected');
+    }
+    
     li.addEventListener('click', (e) => {
+      // Ctrl/Cmd+Click for multi-select
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const selected = isSelected(entry.name);
         toggleItemSelection(entry.name, !selected);
         li.classList.toggle('selected', !selected);
+        return;
+      }
+      
+      // If item is already selected, deselect it instead of navigating/downloading
+      if (isSelected(entry.name)) {
+        e.preventDefault();
+        toggleItemSelection(entry.name, false);
+        li.classList.remove('selected');
         return;
       }
       
@@ -433,12 +448,26 @@ function renderListView(items) {
     li.appendChild(infoEl);
     li.appendChild(actionsEl);
     
+    // Apply selection state if item is selected
+    if (isSelected(entry.name)) {
+      li.classList.add('selected');
+    }
+    
     li.addEventListener('click', (e) => {
+      // Ctrl/Cmd+Click for multi-select
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const selected = isSelected(entry.name);
         toggleItemSelection(entry.name, !selected);
         li.classList.toggle('selected', !selected);
+        return;
+      }
+      
+      // If item is already selected, deselect it instead of navigating/downloading
+      if (isSelected(entry.name)) {
+        e.preventDefault();
+        toggleItemSelection(entry.name, false);
+        li.classList.remove('selected');
         return;
       }
       

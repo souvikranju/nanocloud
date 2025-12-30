@@ -74,17 +74,45 @@ export function isSelected(itemName) {
 }
 
 /**
- * Update selection bar visibility and content
+ * Update selection bar visibility/content and visual selection state of items
  */
 function updateSelectionUI() {
-  if (!selectionBar || !selectionInfo) return;
-  
-  const count = selectedItems.size;
-  
-  if (count > 0) {
-    selectionBar.classList.add('visible');
-    selectionInfo.textContent = `${count} item${count === 1 ? '' : 's'} selected`;
-  } else {
-    selectionBar.classList.remove('visible');
+  // Update selection bar
+  if (selectionBar && selectionInfo) {
+    const count = selectedItems.size;
+    
+    if (count > 0) {
+      selectionBar.classList.add('visible');
+      selectionInfo.textContent = `${count} item${count === 1 ? '' : 's'} selected`;
+    } else {
+      selectionBar.classList.remove('visible');
+    }
   }
+  
+  // Update visual selection state of all items in the DOM
+  // Update grid view items
+  const gridItems = document.querySelectorAll('.file-card');
+  gridItems.forEach(item => {
+    const itemName = item.dataset.name;
+    if (itemName) {
+      if (selectedItems.has(itemName)) {
+        item.classList.add('selected');
+      } else {
+        item.classList.remove('selected');
+      }
+    }
+  });
+  
+  // Update list view items
+  const listItems = document.querySelectorAll('.file-list-item');
+  listItems.forEach(item => {
+    const itemName = item.dataset.name;
+    if (itemName) {
+      if (selectedItems.has(itemName)) {
+        item.classList.add('selected');
+      } else {
+        item.classList.remove('selected');
+      }
+    }
+  });
 }

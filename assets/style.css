@@ -856,6 +856,8 @@ button {
 
 .modal-body {
   padding: var(--space-6);
+  overflow-y: auto;
+  max-height: calc(90vh - 200px);
 }
 
 .info-modal-body {
@@ -870,6 +872,9 @@ button {
   padding: var(--space-6);
   border-top: 1px solid var(--gray-200);
   background: var(--gray-50);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 /* =====================================
