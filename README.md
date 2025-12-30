@@ -12,7 +12,7 @@ A minimal, fast, self-hosted cloud server designed to run on low-power hardware 
 - **Lightweight & Fast**: Runs on minimal hardware such as Raspberry Pi
 - **No Dependencies**: Pure PHP server with no heavy frameworks or databases
 - **Modern UI**: Responsive design with grid/list views, drag & drop, and real-time progress tracking
-- **File Management**: Browse, upload, download, create folders, and delete files/folders
+- **File Management**: Browse, upload, download, create folders, delete, rename, and move files/folders
 - **Smart Features**: 
   - Duplicate file detection
   - File type icons and categorization
@@ -20,9 +20,17 @@ A minimal, fast, self-hosted cloud server designed to run on low-power hardware 
   - Breadcrumb navigation
   - Multi-file selection and bulk operations
   - Concurrent uploads with progress tracking
+  - Rename files and folders
+  - Move items between directories with folder tree navigation
+  - Optimized streaming with client disconnect detection and rate limiting
 
 ### User Experience
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
+- **Mobile Optimized**: 
+  - Press-and-hold (500ms) for multi-select on mobile
+  - Touch-friendly interface with proper spacing
+  - Haptic feedback for selections
+  - Optimized text overflow handling
 - **Drag & Drop**: Drop files anywhere on the page to upload
 - **Keyboard Shortcuts**: 
   - `Ctrl/Cmd + U` - Open upload modal
@@ -33,6 +41,7 @@ A minimal, fast, self-hosted cloud server designed to run on low-power hardware 
   - `Escape` - Deselect all
 - **Toast Notifications**: Non-intrusive success/error messages
 - **Real-time Progress**: Live upload progress with per-file status
+- **Smart Streaming**: Automatic disconnect detection and rate limiting (10MB/s default)
 
 ### Security Model
 - **Trusted LAN Operation**: Designed for home/private networks where all users are trusted
@@ -69,10 +78,16 @@ NanoCloud follows a modern, modular architecture with clear separation of concer
 │  ├─ POST action=upload   File upload handler                │
 │  ├─ POST action=delete   File deletion                      │
 │  ├─ POST action=create_dir  Folder creation                 │
-│  └─ POST action=delete_dir  Folder deletion                 │
+│  ├─ POST action=delete_dir  Folder deletion                 │
+│  ├─ POST action=rename_file  Rename file                    │
+│  ├─ POST action=rename_dir   Rename directory               │
+│  └─ POST action=move     Move file or directory             │
 │                                                               │
 │  nanocloud_download.php  File Streaming                      │
-│  └─ Handles file downloads with proper MIME types           │
+│  ├─ Handles file downloads with proper MIME types           │
+│  ├─ Client disconnect detection                             │
+│  ├─ Rate limiting (10MB/s default)                          │
+│  └─ Optimized chunk size (64KB)                             │
 │                                                               │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -103,7 +118,10 @@ NanoCloud follows a modern, modular architecture with clear separation of concer
 │  ├─ uploadSingle()       Upload with XHR progress           │
 │  ├─ createDir()          Create new folder                  │
 │  ├─ deleteFile()         Delete single file                 │
-│  └─ deleteDir()          Delete folder recursively          │
+│  ├─ deleteDir()          Delete folder recursively          │
+│  ├─ renameFile()         Rename file                        │
+│  ├─ renameDir()          Rename directory                   │
+│  └─ moveItem()           Move file or directory             │
 │                                                               │
 │  uploader.js             Upload Orchestration                │
 │  ├─ File validation (size, duplicates)                      │
@@ -121,9 +139,14 @@ NanoCloud follows a modern, modular architecture with clear separation of concer
 │  ui/list.js              File List Management                │
 │  ├─ Grid/List view rendering                                │
 │  ├─ Selection system (single/multi)                         │
+│  ├─ Desktop: Ctrl+Click for multi-select                    │
+│  ├─ Mobile: Press-and-hold (500ms) for multi-select         │
 │  ├─ Breadcrumb navigation                                   │
 │  ├─ Storage meter visualization                             │
-│  └─ Item actions (delete, download, navigate)               │
+│  ├─ Item actions (delete, download, navigate)               │
+│  ├─ Rename functionality with modal                         │
+│  ├─ Move functionality with folder tree                     │
+│  └─ Keyboard shortcuts (F2, Delete, Escape, etc.)           │
 │                                                               │
 │  ui/progress.js          Upload Progress UI                  │
 │  ├─ Progress panel management                               │
@@ -259,7 +282,7 @@ nanocloud_v2/
 ├── index.php                   # Frontend HTML entry point
 ├── config.php                  # Configuration (paths, limits)
 ├── nanocloud_api.php           # RESTful API endpoint
-├── nanocloud_download.php      # File streaming handler
+├── nanocloud_download.php      # File streaming handler (enhanced)
 ├── nanocloud_lib.php           # Shared utility functions
 ├── README.md                   # This file
 ├── CLEANUP_SUMMARY.md          # Code cleanup documentation
@@ -275,11 +298,21 @@ nanocloud_v2/
         ├── utils.js            # Pure utility functions
         │
         └── ui/
-            ├── list.js         # File list rendering & management
+            ├── list.js         # File list rendering (refactored)
+            ├── selection.js    # Selection state management (NEW)
+            ├── touchHandlers.js # Mobile touch interactions (NEW)
+            ├── keyboardShortcuts.js # Keyboard shortcuts (NEW)
+            ├── itemActions.js  # File operations (NEW)
             ├── progress.js     # Upload progress tracking
             ├── toast.js        # Notification system
-            └── fileIcons.js    # File type detection & icons
+            └── fileIcons.js    # File type detection & icons (enhanced)
 ```
+
+**Recent Changes (v2.1):**
+- **Modular Architecture**: Refactored frontend following Single Responsibility Principle
+- **Enhanced Streaming**: Improved disconnect detection and PDF inline viewing
+- **Better Mobile UX**: Fixed long-press selection to prevent accidental downloads
+- **File Type Handling**: MKV and similar formats now force download instead of streaming
 
 ---
 
@@ -409,11 +442,21 @@ sudo systemctl restart lighttpd
    - Click the `+` button (FAB) in the bottom-right
    - Or drag & drop files anywhere on the page
 3. **Create Folder**: Click "New Folder" button in the header
-4. **Delete Items**: 
+4. **Select Items**:
+   - Desktop: Ctrl/Cmd + Click to select multiple items
+   - Mobile: Press and hold any item for 500ms to select
+5. **Rename Items**: 
+   - Select one item, click "Rename" button or press F2
+   - Enter new name in modal and confirm
+6. **Move Items**:
+   - Select one or more items, click "Move" button
+   - Browse folder tree and select destination
+   - Click "Move Here" to confirm
+7. **Delete Items**: 
    - Single: Click trash icon on any item
-   - Multiple: Select items (checkboxes), then click "Delete" in selection bar
-5. **Download Files**: Click on files to download or view in browser
-6. **Switch Views**: Toggle between grid and list view using view buttons
+   - Multiple: Select items, then click "Delete" in selection bar
+8. **Download Files**: Click on files to download or view in browser
+9. **Switch Views**: Toggle between grid and list view using view buttons
 
 ### Keyboard Shortcuts
 
@@ -423,16 +466,26 @@ sudo systemctl restart lighttpd
 | `Ctrl/Cmd + A` | Select all items |
 | `Ctrl/Cmd + R` or `F5` | Refresh listing |
 | `Delete` or `Backspace` | Delete selected items |
-| `F2` | Rename selected item (planned) |
+| `F2` | Rename selected item |
 | `Escape` | Deselect all items |
 
 ### Selection System
 
-- **Single Selection**: Click checkbox on any item
-- **Multi Selection**: Click multiple checkboxes
-- **Ctrl/Cmd + Click**: Toggle selection on item click
+**Desktop:**
+- **Ctrl/Cmd + Click**: Toggle selection on any item
 - **Select All**: Use button in selection bar or `Ctrl/Cmd + A`
-- **Bulk Actions**: Delete multiple items at once
+- **Keyboard Shortcuts**: F2 (rename), Delete (delete), Escape (deselect)
+
+**Mobile:**
+- **Press and Hold**: Touch and hold any item for 500ms to select
+- **Visual Feedback**: Animation and haptic vibration on selection
+- **Multi-Select**: Continue tapping items to add to selection
+- **Selection Bar**: Appears at top with action buttons
+
+**Bulk Actions:**
+- Rename (single item only)
+- Move (one or more items)
+- Delete (one or more items)
 
 ---
 
@@ -542,6 +595,37 @@ path=relative/path
 name=foldername
 ```
 
+#### Rename File
+```
+POST /nanocloud_api.php
+
+action=rename_file
+path=relative/path
+filename=oldname.txt
+newName=newname.txt
+```
+
+#### Rename Directory
+```
+POST /nanocloud_api.php
+
+action=rename_dir
+path=relative/path
+name=oldname
+newName=newname
+```
+
+#### Move Item
+```
+POST /nanocloud_api.php
+
+action=move
+path=source/path
+itemType=file (or dir)
+itemName=filename.txt
+targetPath=destination/path
+```
+
 ### Download Endpoint
 
 ```
@@ -604,17 +688,24 @@ location / {
 
 ## Roadmap
 
+### Completed Features
+
+- [x] **File Rename**: Rename files and folders in-place
+- [x] **File Move**: Move files between directories with folder tree
+- [x] **Mobile Multi-Select**: Press-and-hold for 500ms to select items
+- [x] **Streaming Optimization**: Client disconnect detection and rate limiting
+
 ### Planned Features
 
 - [ ] **Authentication System**: Optional user login and session management
 - [ ] **Role-Based Access**: Read-only vs. full access permissions
-- [ ] **File Rename**: Rename files and folders in-place
-- [ ] **File Move**: Move files between directories
 - [ ] **File Preview**: Built-in preview for images, videos, PDFs
 - [ ] **Search**: Full-text search across filenames
 - [ ] **Sharing**: Generate temporary download links
 - [ ] **Themes**: Dark mode and customizable color schemes
 - [ ] **Mobile App**: Native mobile applications
+- [ ] **Batch Rename**: Rename multiple files with patterns
+- [ ] **Copy Files**: Duplicate files and folders
 
 ### Future Enhancements
 

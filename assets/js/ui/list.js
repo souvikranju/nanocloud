@@ -1,18 +1,37 @@
 // ui/list.js
-// Modern file list rendering with grid/list views, selection system, and enhanced UI
-// Integrates with the new design system and file type icons
+// File list rendering with grid/list views
+// Focused on rendering responsibilities only
 
 import { DOWNLOAD_BASE } from '../state.js';
 import { joinPath } from '../utils.js';
-import { list as apiList, deleteFile as apiDeleteFile, deleteDir as apiDeleteDir } from '../nanocloudClient.js';
+import { list as apiList } from '../nanocloudClient.js';
 import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh } from '../state.js';
-import { showSuccess, showError, showWarning } from './toast.js';
+import { showError } from './toast.js';
 import { 
   createFileIconElement, 
   createListIconElement, 
   isViewableInBrowser 
 } from './fileIcons.js';
 import { formatBytes, formatDate } from '../utils.js';
+
+// Import new modules
+import { 
+  initSelection, 
+  clearSelection, 
+  toggleItemSelection, 
+  isSelected,
+  selectAll,
+  deselectAll
+} from './selection.js';
+import { initTouchHandlers, updateTouchHandlerItems } from './touchHandlers.js';
+import { initKeyboardShortcuts, updateKeyboardShortcutItems } from './keyboardShortcuts.js';
+import { 
+  deleteItem, 
+  deleteSelectedItems, 
+  renameSelectedItem, 
+  moveSelectedItems,
+  updateItemActionsItems
+} from './itemActions.js';
 
 // DOM References
 /** @type {HTMLElement|null} */ let fileListEl = null;
@@ -25,12 +44,9 @@ import { formatBytes, formatDate } from '../utils.js';
 /** @type {HTMLElement|null} */ let upBtn = null;
 /** @type {HTMLElement|null} */ let gridViewBtn = null;
 /** @type {HTMLElement|null} */ let listViewBtn = null;
-/** @type {HTMLElement|null} */ let selectionBar = null;
-/** @type {HTMLElement|null} */ let selectionInfo = null;
 
 // State
 let currentViewMode = 'list'; // 'grid' or 'list' - default to list view
-let selectedItems = new Set();
 let currentItems = [];
 
 /**
@@ -50,8 +66,6 @@ export function initList(refs) {
   // Get additional UI elements
   gridViewBtn = document.getElementById('gridViewBtn');
   listViewBtn = document.getElementById('listViewBtn');
-  selectionBar = document.getElementById('selectionBar');
-  selectionInfo = document.getElementById('selectionInfo');
   
   // Load saved view preference first
   loadViewPreference();
@@ -59,11 +73,52 @@ export function initList(refs) {
   // Setup view toggle handlers
   setupViewToggle();
   
-  // Setup selection handlers
-  setupSelectionHandlers();
+  // Initialize new modules
+  initSelection({
+    selectionBar: document.getElementById('selectionBar'),
+    selectionInfo: document.getElementById('selectionInfo')
+  });
+  
+  initTouchHandlers(fileListEl, currentItems, handleItemClick);
+  
+  initKeyboardShortcuts(currentItems, deleteSelectedItems, renameSelectedItem);
+  
+  // Setup selection bar buttons
+  setupSelectionButtons();
   
   // Register this module's fetchAndRenderList as the auto-refresh callback
   registerAutoRefresh((requestId) => fetchAndRenderListWithTracking(requestId));
+}
+
+/**
+ * Setup selection bar buttons
+ */
+function setupSelectionButtons() {
+  const selectAllBtn = document.getElementById('selectAllBtn');
+  const deselectAllBtn = document.getElementById('deselectAllBtn');
+  const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+  const renameSelectedBtn = document.getElementById('renameSelectedBtn');
+  const moveSelectedBtn = document.getElementById('moveSelectedBtn');
+  
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', () => selectAll(currentItems));
+  }
+  
+  if (deselectAllBtn) {
+    deselectAllBtn.addEventListener('click', deselectAll);
+  }
+  
+  if (deleteSelectedBtn) {
+    deleteSelectedBtn.addEventListener('click', deleteSelectedItems);
+  }
+  
+  if (renameSelectedBtn) {
+    renameSelectedBtn.addEventListener('click', renameSelectedItem);
+  }
+  
+  if (moveSelectedBtn) {
+    moveSelectedBtn.addEventListener('click', moveSelectedItems);
+  }
 }
 
 /**
@@ -78,7 +133,7 @@ function setupViewToggle() {
       if (!gridViewBtn.disabled) {
         switchView('grid');
       }
-    }, true); // Use capture phase
+    }, true);
   }
   
   if (listViewBtn) {
@@ -89,79 +144,7 @@ function setupViewToggle() {
       if (!listViewBtn.disabled) {
         switchView('list');
       }
-    }, true); // Use capture phase
-  }
-}
-
-/**
- * Setup selection system handlers
- */
-function setupSelectionHandlers() {
-  // Selection bar buttons
-  const selectAllBtn = document.getElementById('selectAllBtn');
-  const deselectAllBtn = document.getElementById('deselectAllBtn');
-  const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-  const renameSelectedBtn = document.getElementById('renameSelectedBtn');
-  const moveSelectedBtn = document.getElementById('moveSelectedBtn');
-  
-  if (selectAllBtn) {
-    selectAllBtn.addEventListener('click', selectAllItems);
-  }
-  
-  if (deselectAllBtn) {
-    deselectAllBtn.addEventListener('click', deselectAllItems);
-  }
-  
-  if (deleteSelectedBtn) {
-    deleteSelectedBtn.addEventListener('click', deleteSelectedItems);
-  }
-  
-  if (renameSelectedBtn) {
-    renameSelectedBtn.addEventListener('click', renameSelectedItem);
-  }
-  
-  if (moveSelectedBtn) {
-    moveSelectedBtn.addEventListener('click', moveSelectedItems);
-  }
-  
-  // Keyboard shortcuts
-  document.addEventListener('keydown', handleKeyboardShortcuts);
-}
-
-/**
- * Handle keyboard shortcuts
- * @param {KeyboardEvent} event
- */
-function handleKeyboardShortcuts(event) {
-  // Only handle shortcuts when not in input fields
-  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-    return;
-  }
-  
-  switch (event.key) {
-    case 'a':
-    case 'A':
-      if (event.ctrlKey || event.metaKey) {
-        event.preventDefault();
-        selectAllItems();
-      }
-      break;
-    case 'Escape':
-      deselectAllItems();
-      break;
-    case 'Delete':
-    case 'Backspace':
-      if (selectedItems.size > 0) {
-        event.preventDefault();
-        deleteSelectedItems();
-      }
-      break;
-    case 'F2':
-      if (selectedItems.size === 1) {
-        event.preventDefault();
-        renameSelectedItem();
-      }
-      break;
+    }, true);
   }
 }
 
@@ -174,21 +157,16 @@ function switchView(mode) {
   
   currentViewMode = mode;
   
-  // Update button states
   if (gridViewBtn && listViewBtn) {
     gridViewBtn.classList.toggle('active', mode === 'grid');
     listViewBtn.classList.toggle('active', mode === 'list');
   }
   
-  // Update file list classes
   if (fileListEl) {
     fileListEl.className = mode === 'grid' ? 'file-grid' : 'file-list';
   }
   
-  // Re-render items with new view
   renderItems(currentItems);
-  
-  // Save preference
   localStorage.setItem('nanocloud-view-mode', mode);
 }
 
@@ -264,7 +242,6 @@ export function updateBreadcrumbs(breadcrumbs) {
   
   breadcrumbsEl.innerHTML = '';
 
-  // Root breadcrumb
   const rootCrumb = document.createElement('span');
   rootCrumb.className = 'crumb';
   rootCrumb.textContent = 'Home';
@@ -274,7 +251,6 @@ export function updateBreadcrumbs(breadcrumbs) {
   });
   breadcrumbsEl.appendChild(rootCrumb);
 
-  // Path breadcrumbs
   if (Array.isArray(breadcrumbs) && breadcrumbs.length > 0) {
     breadcrumbs.forEach((seg, index) => {
       const sep = document.createElement('span');
@@ -296,7 +272,6 @@ export function updateBreadcrumbs(breadcrumbs) {
     });
   }
 
-  // Update up button state
   if (upBtn) {
     upBtn.disabled = getCurrentPath() === '';
   }
@@ -312,11 +287,14 @@ export function renderItems(items) {
   currentItems = items || [];
   fileListEl.innerHTML = '';
   
-  // Clear selection when items change
-  selectedItems.clear();
-  updateSelectionBar();
+  clearSelection();
   
   setExistingNamesFromList(currentItems);
+  
+  // Update references in other modules
+  updateTouchHandlerItems(currentItems);
+  updateKeyboardShortcutItems(currentItems);
+  updateItemActionsItems(currentItems);
 
   if (!currentItems || currentItems.length === 0) {
     emptyStateEl.style.display = 'flex';
@@ -325,7 +303,6 @@ export function renderItems(items) {
   
   emptyStateEl.style.display = 'none';
 
-  // Render items based on current view mode
   if (currentViewMode === 'grid') {
     renderGridView(currentItems);
   } else {
@@ -346,24 +323,12 @@ function renderGridView(items) {
     li.dataset.name = entry.name;
     li.dataset.type = entry.type;
     
-    // Create checkbox for selection
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'file-checkbox';
-    checkbox.addEventListener('change', (e) => {
-      e.stopPropagation();
-      toggleItemSelection(entry.name, checkbox.checked);
-    });
-    
-    // Create file icon
     const iconEl = createFileIconElement(entry.name, entry.type);
     
-    // Create file name
     const nameEl = document.createElement('div');
     nameEl.className = 'file-name';
     nameEl.textContent = entry.name;
     
-    // Create file metadata
     const metaEl = document.createElement('div');
     metaEl.className = 'file-meta';
     
@@ -377,7 +342,6 @@ function renderGridView(items) {
       metaEl.textContent = [sizeText, timeText].filter(Boolean).join(' • ');
     }
     
-    // Create action buttons
     const actionsEl = document.createElement('div');
     actionsEl.className = 'file-actions';
     
@@ -392,20 +356,17 @@ function renderGridView(items) {
     
     actionsEl.appendChild(deleteBtn);
     
-    // Assemble card
-    li.appendChild(checkbox);
     li.appendChild(iconEl);
     li.appendChild(nameEl);
     li.appendChild(metaEl);
     li.appendChild(actionsEl);
     
-    // Add click handler for navigation/download
     li.addEventListener('click', (e) => {
-      // Handle selection with Ctrl/Cmd click
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        checkbox.checked = !checkbox.checked;
-        toggleItemSelection(entry.name, checkbox.checked);
+        const selected = isSelected(entry.name);
+        toggleItemSelection(entry.name, !selected);
+        li.classList.toggle('selected', !selected);
         return;
       }
       
@@ -429,19 +390,8 @@ function renderListView(items) {
     li.dataset.name = entry.name;
     li.dataset.type = entry.type;
     
-    // Create checkbox for selection
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'file-checkbox';
-    checkbox.addEventListener('change', (e) => {
-      e.stopPropagation();
-      toggleItemSelection(entry.name, checkbox.checked);
-    });
-    
-    // Create file icon
     const iconEl = createListIconElement(entry.name, entry.type);
     
-    // Create file info
     const infoEl = document.createElement('div');
     infoEl.className = 'file-info';
     
@@ -465,7 +415,6 @@ function renderListView(items) {
     infoEl.appendChild(nameEl);
     infoEl.appendChild(metaEl);
     
-    // Create action buttons
     const actionsEl = document.createElement('div');
     actionsEl.className = 'file-list-actions';
     
@@ -480,19 +429,16 @@ function renderListView(items) {
     
     actionsEl.appendChild(deleteBtn);
     
-    // Assemble list item
-    li.appendChild(checkbox);
     li.appendChild(iconEl);
     li.appendChild(infoEl);
     li.appendChild(actionsEl);
     
-    // Add click handler
     li.addEventListener('click', (e) => {
-      // Handle selection with Ctrl/Cmd click
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        checkbox.checked = !checkbox.checked;
-        toggleItemSelection(entry.name, checkbox.checked);
+        const selected = isSelected(entry.name);
+        toggleItemSelection(entry.name, !selected);
+        li.classList.toggle('selected', !selected);
         return;
       }
       
@@ -509,199 +455,29 @@ function renderListView(items) {
  */
 function handleItemClick(entry) {
   if (entry.type === 'dir') {
-    // Navigate to directory
     setCurrentPath(joinPath(getCurrentPath(), entry.name));
     requestRefresh();
   } else {
-    // Handle file click
     const path = getCurrentPath();
     const downloadUrl = DOWNLOAD_BASE + (path ? (`?path=${encodeURIComponent(path)}&file=`) : ('?file=')) + encodeURIComponent(entry.name);
+    console.log(downloadUrl);
+    // Create a temporary link element
+    const link = document.createElement('a');
+    link.href = downloadUrl;
     
     if (isViewableInBrowser(entry.name)) {
       // Open viewable files in new tab
-      window.open(downloadUrl, '_blank');
+      link.target = '_blank';
     } else {
-      // Download other files
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = entry.name;
-      link.click();
-    }
-  }
-}
-
-/**
- * Toggle item selection
- * @param {string} itemName
- * @param {boolean} selected
- */
-function toggleItemSelection(itemName, selected) {
-  if (selected) {
-    selectedItems.add(itemName);
-  } else {
-    selectedItems.delete(itemName);
-  }
-  
-  // Update visual state
-  const itemEl = fileListEl.querySelector(`[data-name="${CSS.escape(itemName)}"]`);
-  if (itemEl) {
-    itemEl.classList.toggle('selected', selected);
-  }
-  
-  updateSelectionBar();
-}
-
-/**
- * Select all items
- */
-function selectAllItems() {
-  currentItems.forEach(item => {
-    selectedItems.add(item.name);
-    const itemEl = fileListEl.querySelector(`[data-name="${CSS.escape(item.name)}"]`);
-    if (itemEl) {
-      itemEl.classList.add('selected');
-      const checkbox = itemEl.querySelector('.file-checkbox');
-      if (checkbox) checkbox.checked = true;
-    }
-  });
-  
-  updateSelectionBar();
-}
-
-/**
- * Deselect all items
- */
-function deselectAllItems() {
-  selectedItems.clear();
-  
-  fileListEl.querySelectorAll('.selected').forEach(itemEl => {
-    itemEl.classList.remove('selected');
-    const checkbox = itemEl.querySelector('.file-checkbox');
-    if (checkbox) checkbox.checked = false;
-  });
-  
-  updateSelectionBar();
-}
-
-/**
- * Update selection bar visibility and content
- */
-function updateSelectionBar() {
-  if (!selectionBar || !selectionInfo) return;
-  
-  const count = selectedItems.size;
-  
-  if (count > 0) {
-    selectionBar.classList.add('visible');
-    selectionInfo.textContent = `${count} item${count === 1 ? '' : 's'} selected`;
-  } else {
-    selectionBar.classList.remove('visible');
-  }
-}
-
-/**
- * Delete selected items
- */
-async function deleteSelectedItems() {
-  if (selectedItems.size === 0) return;
-  
-  const itemNames = Array.from(selectedItems);
-  const message = itemNames.length === 1 
-    ? `Delete "${itemNames[0]}"?`
-    : `Delete ${itemNames.length} selected items?`;
-  
-  if (!confirm(message)) return;
-  
-  let successCount = 0;
-  let errorCount = 0;
-  
-  for (const itemName of itemNames) {
-    try {
-      const item = currentItems.find(i => i.name === itemName);
-      if (!item) continue;
-      
-      const resp = item.type === 'dir' 
-        ? await apiDeleteDir(getCurrentPath(), itemName)
-        : await apiDeleteFile(getCurrentPath(), itemName);
-      
-      if (resp.success) {
-        successCount++;
-      } else {
-        errorCount++;
-        showError(`Failed to delete "${itemName}": ${resp.message || 'Unknown error'}`);
-      }
-    } catch (err) {
-      errorCount++;
-      showError(`Error deleting "${itemName}": ${err.message || err}`);
-    }
-  }
-  
-  // Show summary
-  if (successCount > 0) {
-    showSuccess(`Successfully deleted ${successCount} item${successCount === 1 ? '' : 's'}`);
-  }
-  
-  if (errorCount > 0) {
-    showError(`Failed to delete ${errorCount} item${errorCount === 1 ? '' : 's'}`);
-  }
-  
-  // Clear selection and refresh
-  deselectAllItems();
-  requestRefresh(true);
-}
-
-/**
- * Rename selected item (only works with single selection)
- */
-function renameSelectedItem() {
-  if (selectedItems.size !== 1) {
-    showWarning('Please select exactly one item to rename');
-    return;
-  }
-  
-  const itemName = Array.from(selectedItems)[0];
-  const newName = prompt('Enter new name:', itemName);
-  
-  if (!newName || newName === itemName) return;
-  
-  // TODO: Implement rename functionality
-  showWarning('Rename functionality will be implemented in the next update');
-}
-
-/**
- * Move selected items
- */
-function moveSelectedItems() {
-  if (selectedItems.size === 0) return;
-  
-  // TODO: Implement move functionality
-  showWarning('Move functionality will be implemented in the next update');
-}
-
-/**
- * Delete single item
- * @param {Object} entry
- */
-async function deleteItem(entry) {
-  const message = entry.type === 'dir' 
-    ? `Delete folder "${entry.name}" and all its contents?`
-    : `Delete "${entry.name}"?`;
-  
-  if (!confirm(message)) return;
-  
-  try {
-    const resp = entry.type === 'dir' 
-      ? await apiDeleteDir(getCurrentPath(), entry.name)
-      : await apiDeleteFile(getCurrentPath(), entry.name);
-    
-    if (!resp.success) {
-      throw new Error(resp.message || 'Delete failed');
+      // Force download for non-viewable files
+      link.setAttribute('download', entry.name);
     }
     
-    showSuccess(`Deleted "${entry.name}"`);
-    requestRefresh(true);
-  } catch (err) {
-    showError(`Error deleting "${entry.name}": ${err.message || err}`);
+    // Trigger the link click
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }
 

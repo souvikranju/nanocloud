@@ -84,9 +84,9 @@ if (function_exists('finfo_open')) {
 
 header('Content-Description: File Transfer');
 
-// Determine if this file type should be rendered inline by the browser (images/audio/video)
+// Determine if this file type should be rendered inline by the browser (images/audio/video/pdf)
 $ext = strtolower(pathinfo($sanitizedFile, PATHINFO_EXTENSION));
-$openableExts = ['jpg','jpeg','png','gif','webp','bmp','svg','mp4','webm','ogg','mov','mkv','mp3','wav','flac','aac'];
+$openableExts = ['jpg','jpeg','png','gif','webp','bmp','svg','mp4','webm','ogg','mp3','wav','flac','aac','pdf'];
 
 header('Content-Type: ' . $mime);
 header('Content-Length: ' . filesize($pathReal));
@@ -97,18 +97,92 @@ if (in_array($ext, $openableExts, true)) {
     // Allow browser to open inline (no forced download)
     header('Content-Disposition: inline; filename="' . $sanitizedFile . '"');
 } else {
-    // Force download for non-supported types
+    // Force download for all other file types (including MKV, AVI, etc.)
     header('Content-Disposition: attachment; filename="' . $sanitizedFile . '"');
     header('Content-Transfer-Encoding: binary');
 }
 
+// Enable ignore_user_abort to allow cleanup on disconnect
+ignore_user_abort(true);
+
+// Stream file with enhanced client disconnect detection
 $fp = fopen($pathReal, 'rb');
 if ($fp !== false) {
+    // Set a reasonable chunk size (64KB for better performance)
+    // $chunkSize = 65536;
+    $chunkSize = 1 * 1024 * 1024;
+    
+    // Track bytes sent for rate limiting (optional)
+    $bytesSent = 0;
+    $startTime = microtime(true);
+    
+    // Maximum transfer rate in bytes per second (0 = unlimited)
+    // Set to 5MB/s for better download experience
+    $maxBytesPerSecond = 5 * 1024 * 1024;
+    
     while (!feof($fp)) {
-        echo fread($fp, 8192);
-        @ob_flush();
-        flush();
+        // Enhanced client disconnect detection
+        if (connection_aborted()) {
+            fclose($fp);
+            // Log disconnect if needed
+            error_log("Client disconnected during file transfer: {$sanitizedFile}");
+            exit;
+        }
+        
+        // Additional connection status check
+        if (connection_status() != CONNECTION_NORMAL) {
+            fclose($fp);
+            error_log("Connection status abnormal during file transfer: {$sanitizedFile}");
+            exit;
+        }
+        
+        // Read and send chunk
+        $data = fread($fp, $chunkSize);
+        if ($data === false) {
+            break;
+        }
+        
+        echo $data;
+        $bytesSent += strlen($data);
+        
+        // Flush output buffers to detect disconnects faster
+        if (ob_get_level() > 0) {
+            @ob_flush();
+        }
+        @flush();
+        
+        // Check for disconnect after flush
+        if (connection_aborted()) {
+            fclose($fp);
+            error_log("Client disconnected after flush: {$sanitizedFile}");
+            exit;
+        }
+        
+        // Rate limiting: calculate if we need to sleep
+        if ($maxBytesPerSecond > 0) {
+            $elapsedTime = microtime(true) - $startTime;
+            $expectedTime = $bytesSent / $maxBytesPerSecond;
+            
+            if ($expectedTime > $elapsedTime) {
+                // We're sending too fast, sleep for the difference
+                $sleepTime = ($expectedTime - $elapsedTime) * 1000000; // Convert to microseconds
+                if ($sleepTime > 0) {
+                    usleep((int)$sleepTime);
+                }
+            }
+        }
+        
+        // More frequent disconnect checks (every 256KB)
+        if ($bytesSent % 262144 === 0) {
+            if (connection_aborted()) {
+                fclose($fp);
+                error_log("Client disconnected at checkpoint: {$sanitizedFile}");
+                exit;
+            }
+        }
     }
+    
     fclose($fp);
 }
+
 exit;

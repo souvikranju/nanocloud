@@ -119,18 +119,24 @@ export function isViewableInBrowser(filename) {
   
   const ext = filename.toLowerCase().split('.').pop();
   
+  // Files that should NEVER be opened in browser (force download)
+  const forceDownloadExts = ['mkv', 'avi', 'mov', 'wmv', 'flv', 'm4v', '3gp', 'exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm'];
+  if (forceDownloadExts.includes(ext)) {
+    return false;
+  }
+  
   // Images
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) {
     return true;
   }
   
-  // Videos
+  // Videos (only browser-supported formats)
   if (['mp4', 'webm', 'ogg'].includes(ext)) {
     return true;
   }
   
   // Audio
-  if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) {
+  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(ext)) {
     return true;
   }
   
@@ -139,7 +145,7 @@ export function isViewableInBrowser(filename) {
     return true;
   }
   
-  // PDFs
+  // PDFs - can be viewed inline in browser
   if (ext === 'pdf') {
     return true;
   }

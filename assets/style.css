@@ -573,46 +573,9 @@ button {
   opacity: 1;
 }
 
+/* Checkboxes completely disabled - use Ctrl+Click or press-and-hold on mobile for multi-select */
 .file-checkbox {
-  position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
-  width: 20px;
-  height: 20px;
-  opacity: 0;
-  transition: all var(--transition-fast);
-  cursor: pointer;
-  z-index: 10;
-  accent-color: var(--primary-600);
-}
-
-.file-card:hover .file-checkbox,
-.file-card.selected .file-checkbox {
-  opacity: 1;
-}
-
-/* Custom checkbox styling for better visibility */
-.file-checkbox:checked {
-  opacity: 1 !important;
-}
-
-.file-checkbox::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: var(--radius-sm);
-  z-index: -1;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.file-card:hover .file-checkbox::before,
-.file-card.selected .file-checkbox::before {
-  opacity: 1;
+  display: none !important;
 }
 
 /* List View */
@@ -863,6 +826,50 @@ button {
   padding: var(--space-6);
   border-top: 1px solid var(--gray-200);
   background: var(--gray-50);
+}
+
+/* =====================================
+   FOLDER TREE (Move Modal)
+   ===================================== */
+.folder-tree {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: var(--gray-50);
+}
+
+.folder-tree-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.folder-tree-item:last-child {
+  border-bottom: none;
+}
+
+.folder-tree-item:hover {
+  background: var(--gray-100);
+}
+
+.folder-tree-item.selected {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  font-weight: var(--font-weight-medium);
+}
+
+.folder-icon {
+  margin-right: var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.folder-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
 }
 
 /* =====================================
@@ -1249,13 +1256,20 @@ body.drag-active::after {
   }
 
   .file-list-controls {
-    justify-content: center;
+    justify-content: space-between;
     flex-wrap: wrap;
+    width: 100%;
   }
 
   .view-toggle {
     order: -1;
-    margin-bottom: var(--space-2);
+  }
+
+  /* Ensure buttons don't overflow on mobile */
+  .btn {
+    font-size: var(--font-size-xs);
+    padding: var(--space-2) var(--space-3);
+    white-space: nowrap;
   }
 
   .file-grid {
@@ -1314,36 +1328,79 @@ body.drag-active::after {
   .file-name {
     font-size: var(--font-size-xs);
     line-height: var(--line-height-tight);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
   }
 
   .file-meta {
     font-size: 10px;
   }
 
+  /* Visual feedback for press-and-hold selection on mobile */
+  .file-card.selecting,
+  .file-list-item.selecting {
+    animation: pulse-select 0.6s ease-in-out;
+  }
+
   /* Mobile list view adjustments */
   .file-list-item {
     padding: var(--space-3);
+    gap: var(--space-2);
   }
 
   .file-list-icon {
     width: 28px;
     height: 28px;
     font-size: 14px;
+    flex-shrink: 0;
   }
 
   .file-list-name {
     font-size: var(--font-size-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .file-list-meta {
     font-size: 10px;
   }
 
-  /* Touch-friendly checkboxes */
+  /* Ensure file info doesn't overflow */
+  .file-info {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Hide action buttons on mobile to save space */
+  .file-list-actions {
+    display: none;
+  }
+
+  .file-actions {
+    display: none;
+  }
+
+  /* Hide checkboxes on mobile - use press-and-hold instead */
   .file-checkbox {
-    width: 24px;
-    height: 24px;
-    opacity: 1 !important;
+    display: none !important;
+  }
+
+  /* Animation for press-and-hold selection feedback */
+  @keyframes pulse-select {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
+    }
+    50% {
+      transform: scale(0.98);
+      box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+    }
   }
 
   /* Mobile modal adjustments */

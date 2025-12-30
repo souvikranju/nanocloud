@@ -5,7 +5,8 @@
 declare(strict_types=1);
 
 // Upload root directory (absolute)
-define('UPLOAD_DIR', '/home/pi/FTP/dropbox');
+// define('UPLOAD_DIR', '/home/pi/FTP/dropbox');
+define('UPLOAD_DIR', '/local/mnt/workspace');
 
 // Limits (2GB)
 define('MAX_FILE_BYTES', 2147483648); // 2 * 1024 * 1024 * 1024

@@ -768,9 +768,10 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
 
     $itemType = $_POST['itemType'] ?? '';
     $itemName = $_POST['itemName'] ?? '';
-    $targetPath = $_POST['targetPath'] ?? '';
+    $targetPath = $_POST['targetPath'] ?? null;
     
-    if ($itemType === '' || $itemName === '' || $targetPath === '') {
+    // Check for missing parameters (but allow empty string for targetPath which means root)
+    if ($itemType === '' || $itemName === '' || $targetPath === null) {
         send_json([
             'success' => false,
             'message' => 'Missing item type, item name, or target path.',
