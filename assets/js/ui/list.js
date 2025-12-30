@@ -312,83 +312,154 @@ export function renderItems(items) {
 }
 
 /**
+ * View configuration for grid and list modes
+ */
+const VIEW_CONFIG = {
+  grid: {
+    itemClass: 'file-card',
+    nameClass: 'file-name',
+    metaClass: 'file-meta',
+    actionsClass: 'file-actions',
+    iconFn: createFileIconElement,
+    wrapInfo: false
+  },
+  list: {
+    itemClass: 'file-list-item',
+    nameClass: 'file-list-name',
+    metaClass: 'file-list-meta',
+    actionsClass: 'file-list-actions',
+    iconFn: createListIconElement,
+    wrapInfo: true
+  }
+};
+
+/**
+ * Create metadata text for an entry
+ * @param {Object} entry
+ * @returns {string}
+ */
+function createMetadataText(entry) {
+  if (entry.type === 'dir') {
+    const countText = entry.count != null ? `${entry.count} items` : '';
+    const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
+    return [countText, timeText].filter(Boolean).join(' • ');
+  } else {
+    const sizeText = entry.size != null ? formatBytes(entry.size) : '';
+    const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
+    return [sizeText, timeText].filter(Boolean).join(' • ');
+  }
+}
+
+/**
+ * Create delete button for an entry
+ * @param {Object} entry
+ * @returns {HTMLButtonElement}
+ */
+function createDeleteButton(entry) {
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn btn-sm btn-danger';
+  deleteBtn.innerHTML = '🗑️';
+  deleteBtn.title = 'Delete';
+  deleteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteItem(entry);
+  });
+  return deleteBtn;
+}
+
+/**
+ * Attach click handler to item element
+ * @param {HTMLElement} element
+ * @param {Object} entry
+ */
+function attachItemClickHandler(element, entry) {
+  element.addEventListener('click', (e) => {
+    // Ctrl/Cmd+Click for multi-select
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const selected = isSelected(entry.name);
+      toggleItemSelection(entry.name, !selected);
+      element.classList.toggle('selected', !selected);
+      return;
+    }
+    
+    // If item is already selected, deselect it instead of navigating/downloading
+    if (isSelected(entry.name)) {
+      e.preventDefault();
+      toggleItemSelection(entry.name, false);
+      element.classList.remove('selected');
+      return;
+    }
+    
+    handleItemClick(entry);
+  });
+}
+
+/**
+ * Render a single item based on view mode
+ * @param {Object} entry
+ * @param {'grid'|'list'} viewMode
+ * @returns {HTMLLIElement}
+ */
+function renderItem(entry, viewMode) {
+  const config = VIEW_CONFIG[viewMode];
+  
+  const li = document.createElement('li');
+  li.className = config.itemClass;
+  li.dataset.name = entry.name;
+  li.dataset.type = entry.type;
+  
+  const iconEl = config.iconFn(entry.name, entry.type);
+  
+  const nameEl = document.createElement('div');
+  nameEl.className = config.nameClass;
+  nameEl.textContent = entry.name;
+  
+  const metaEl = document.createElement('div');
+  metaEl.className = config.metaClass;
+  metaEl.textContent = createMetadataText(entry);
+  
+  const actionsEl = document.createElement('div');
+  actionsEl.className = config.actionsClass;
+  actionsEl.appendChild(createDeleteButton(entry));
+  
+  // Build DOM structure based on view mode
+  if (config.wrapInfo) {
+    // List view: wrap name and meta in info container
+    const infoEl = document.createElement('div');
+    infoEl.className = 'file-info';
+    infoEl.appendChild(nameEl);
+    infoEl.appendChild(metaEl);
+    
+    li.appendChild(iconEl);
+    li.appendChild(infoEl);
+    li.appendChild(actionsEl);
+  } else {
+    // Grid view: append directly
+    li.appendChild(iconEl);
+    li.appendChild(nameEl);
+    li.appendChild(metaEl);
+    li.appendChild(actionsEl);
+  }
+  
+  // Apply selection state if item is selected
+  if (isSelected(entry.name)) {
+    li.classList.add('selected');
+  }
+  
+  attachItemClickHandler(li, entry);
+  
+  return li;
+}
+
+/**
  * Render items in grid view
  * @param {Array} items
  */
 function renderGridView(items) {
   fileListEl.className = 'file-grid';
-  
   items.forEach(entry => {
-    const li = document.createElement('li');
-    li.className = 'file-card';
-    li.dataset.name = entry.name;
-    li.dataset.type = entry.type;
-    
-    const iconEl = createFileIconElement(entry.name, entry.type);
-    
-    const nameEl = document.createElement('div');
-    nameEl.className = 'file-name';
-    nameEl.textContent = entry.name;
-    
-    const metaEl = document.createElement('div');
-    metaEl.className = 'file-meta';
-    
-    if (entry.type === 'dir') {
-      const countText = entry.count != null ? `${entry.count} items` : '';
-      const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
-      metaEl.textContent = [countText, timeText].filter(Boolean).join(' • ');
-    } else {
-      const sizeText = entry.size != null ? formatBytes(entry.size) : '';
-      const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
-      metaEl.textContent = [sizeText, timeText].filter(Boolean).join(' • ');
-    }
-    
-    const actionsEl = document.createElement('div');
-    actionsEl.className = 'file-actions';
-    
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-sm btn-danger';
-    deleteBtn.innerHTML = '🗑️';
-    deleteBtn.title = 'Delete';
-    deleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteItem(entry);
-    });
-    
-    actionsEl.appendChild(deleteBtn);
-    
-    li.appendChild(iconEl);
-    li.appendChild(nameEl);
-    li.appendChild(metaEl);
-    li.appendChild(actionsEl);
-    
-    // Apply selection state if item is selected
-    if (isSelected(entry.name)) {
-      li.classList.add('selected');
-    }
-    
-    li.addEventListener('click', (e) => {
-      // Ctrl/Cmd+Click for multi-select
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const selected = isSelected(entry.name);
-        toggleItemSelection(entry.name, !selected);
-        li.classList.toggle('selected', !selected);
-        return;
-      }
-      
-      // If item is already selected, deselect it instead of navigating/downloading
-      if (isSelected(entry.name)) {
-        e.preventDefault();
-        toggleItemSelection(entry.name, false);
-        li.classList.remove('selected');
-        return;
-      }
-      
-      handleItemClick(entry);
-    });
-    
-    fileListEl.appendChild(li);
+    fileListEl.appendChild(renderItem(entry, 'grid'));
   });
 }
 
@@ -398,83 +469,8 @@ function renderGridView(items) {
  */
 function renderListView(items) {
   fileListEl.className = 'file-list';
-  
   items.forEach(entry => {
-    const li = document.createElement('li');
-    li.className = 'file-list-item';
-    li.dataset.name = entry.name;
-    li.dataset.type = entry.type;
-    
-    const iconEl = createListIconElement(entry.name, entry.type);
-    
-    const infoEl = document.createElement('div');
-    infoEl.className = 'file-info';
-    
-    const nameEl = document.createElement('div');
-    nameEl.className = 'file-list-name';
-    nameEl.textContent = entry.name;
-    
-    const metaEl = document.createElement('div');
-    metaEl.className = 'file-list-meta';
-    
-    if (entry.type === 'dir') {
-      const countText = entry.count != null ? `${entry.count} items` : '';
-      const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
-      metaEl.textContent = [countText, timeText].filter(Boolean).join(' • ');
-    } else {
-      const sizeText = entry.size != null ? formatBytes(entry.size) : '';
-      const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
-      metaEl.textContent = [sizeText, timeText].filter(Boolean).join(' • ');
-    }
-    
-    infoEl.appendChild(nameEl);
-    infoEl.appendChild(metaEl);
-    
-    const actionsEl = document.createElement('div');
-    actionsEl.className = 'file-list-actions';
-    
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-sm btn-danger';
-    deleteBtn.innerHTML = '🗑️';
-    deleteBtn.title = 'Delete';
-    deleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteItem(entry);
-    });
-    
-    actionsEl.appendChild(deleteBtn);
-    
-    li.appendChild(iconEl);
-    li.appendChild(infoEl);
-    li.appendChild(actionsEl);
-    
-    // Apply selection state if item is selected
-    if (isSelected(entry.name)) {
-      li.classList.add('selected');
-    }
-    
-    li.addEventListener('click', (e) => {
-      // Ctrl/Cmd+Click for multi-select
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const selected = isSelected(entry.name);
-        toggleItemSelection(entry.name, !selected);
-        li.classList.toggle('selected', !selected);
-        return;
-      }
-      
-      // If item is already selected, deselect it instead of navigating/downloading
-      if (isSelected(entry.name)) {
-        e.preventDefault();
-        toggleItemSelection(entry.name, false);
-        li.classList.remove('selected');
-        return;
-      }
-      
-      handleItemClick(entry);
-    });
-    
-    fileListEl.appendChild(li);
+    fileListEl.appendChild(renderItem(entry, 'list'));
   });
 }
 
