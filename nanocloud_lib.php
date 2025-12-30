@@ -146,3 +146,26 @@ function upload_error_message(int $code): string
             return 'Unknown upload error.';
     }
 }
+
+/**
+ * Apply configured permissions and ownership to a file or directory.
+ * 
+ * @param string $path Path to the file or directory
+ * @param bool $isDir Whether the path is a directory (true) or file (false)
+ * @return void
+ */
+function apply_permissions(string $path, bool $isDir = false): void
+{
+    // Apply permissions based on type
+    $perms = $isDir ? DIR_PERMISSIONS : FILE_PERMISSIONS;
+    @chmod($path, $perms);
+    
+    // Apply ownership if configured (requires appropriate server permissions)
+    if (defined('FILE_OWNER') && FILE_OWNER !== null) {
+        @chown($path, FILE_OWNER);
+    }
+    
+    if (defined('FILE_GROUP') && FILE_GROUP !== null) {
+        @chgrp($path, FILE_GROUP);
+    }
+}
