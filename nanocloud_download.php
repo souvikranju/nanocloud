@@ -9,6 +9,11 @@
 
 declare(strict_types=1);
 
+// Start session to maintain compatibility, but close it immediately
+// to prevent session locking that would block API requests during download
+session_start();
+session_write_close();
+
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'config.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'nanocloud_lib.php';
 
@@ -109,16 +114,15 @@ ignore_user_abort(true);
 $fp = fopen($pathReal, 'rb');
 if ($fp !== false) {
     // Set a reasonable chunk size (64KB for better performance)
-    // $chunkSize = 65536;
-    $chunkSize = 1 * 1024 * 1024;
+    $chunkSize = 65536;
     
     // Track bytes sent for rate limiting (optional)
     $bytesSent = 0;
     $startTime = microtime(true);
     
     // Maximum transfer rate in bytes per second (0 = unlimited)
-    // Set to 5MB/s for better download experience
-    $maxBytesPerSecond = 5 * 1024 * 1024;
+    // Read from configuration
+    $maxBytesPerSecond = DOWNLOAD_RATE_LIMIT_MB * 1024 * 1024;
     
     while (!feof($fp)) {
         // Enhanced client disconnect detection

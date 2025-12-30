@@ -180,53 +180,54 @@ button {
 .header-section {
   background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
   color: white;
-  padding: var(--space-8) 0;
-  margin-bottom: var(--space-8);
-  box-shadow: var(--shadow-lg);
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
 }
 
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 .header-info h1 {
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  margin-bottom: var(--space-2);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: var(--space-1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .header-info .subtitle {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-sm);
   opacity: 0.9;
   font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-tight);
 }
 
 .storage-card {
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  min-width: 280px;
-  max-width: 360px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  min-width: 220px;
+  max-width: 280px;
 }
 
 .storage-title {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
   opacity: 0.9;
 }
 
 .storage-text {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
 }
 
 .storage-bar-wrap {
@@ -234,7 +235,7 @@ button {
   background: rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-full);
   overflow: hidden;
-  height: 8px;
+  height: 6px;
 }
 
 .storage-bar {
@@ -1233,15 +1234,46 @@ body.drag-active::after {
     padding: var(--space-3);
   }
 
+  .header-section {
+    padding: var(--space-3) 0;
+    margin-bottom: var(--space-4);
+  }
+
   .header-content {
     flex-direction: column;
     align-items: stretch;
     text-align: center;
+    gap: var(--space-3);
+  }
+
+  .header-info h1 {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--space-1);
+  }
+
+  .header-info .subtitle {
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
   }
 
   .storage-card {
     min-width: auto;
     max-width: none;
+    padding: var(--space-3);
+  }
+
+  .storage-title {
+    font-size: var(--font-size-xs);
+    margin-bottom: var(--space-1);
+  }
+
+  .storage-text {
+    font-size: var(--font-size-xs);
+    margin-bottom: var(--space-2);
+  }
+
+  .storage-bar-wrap {
+    height: 4px;
   }
 
   .file-list-header {
@@ -1427,11 +1459,35 @@ body.drag-active::after {
 
 @media (max-width: 480px) {
   .header-section {
-    padding: var(--space-6) 0;
+    padding: var(--space-2) 0;
+    margin-bottom: var(--space-3);
   }
 
   .header-info h1 {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-base);
+    margin-bottom: 0;
+  }
+
+  .header-info .subtitle {
+    font-size: 11px;
+  }
+
+  .storage-card {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .storage-title {
+    font-size: 10px;
+    margin-bottom: var(--space-1);
+  }
+
+  .storage-text {
+    font-size: 11px;
+    margin-bottom: var(--space-1);
+  }
+
+  .storage-bar-wrap {
+    height: 3px;
   }
 
   .file-grid {
@@ -1514,7 +1570,20 @@ body.drag-active::after {
    ===================================== */
 @media (max-width: 768px) and (orientation: landscape) {
   .header-section {
-    padding: var(--space-4) 0;
+    padding: var(--space-2) 0;
+    margin-bottom: var(--space-3);
+  }
+
+  .header-info h1 {
+    font-size: var(--font-size-base);
+  }
+
+  .header-info .subtitle {
+    font-size: var(--font-size-xs);
+  }
+
+  .storage-card {
+    padding: var(--space-2) var(--space-3);
   }
 
   .file-list-container {

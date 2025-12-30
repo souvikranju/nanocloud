@@ -19,6 +19,11 @@ session_start();
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'config.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'nanocloud_lib.php';
 
+// Close session early to prevent session locking
+// This allows multiple API requests to be processed concurrently
+// Session data is still available in $_SESSION but won't block other requests
+session_write_close();
+
 // Upload root directory (single configurable place)
 $uploadDir = UPLOAD_DIR;
 $uploadDirReal = null;
