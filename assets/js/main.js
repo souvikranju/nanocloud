@@ -61,6 +61,11 @@ const DOM = {
   // Storage meter
   storageText: document.getElementById('storageText'),
   storageBar: document.getElementById('storageBar'),
+
+  // Info modal
+  infoBtn: document.getElementById('infoBtn'),
+  infoModal: document.getElementById('infoModal'),
+  infoModalClose: document.getElementById('infoModalClose'),
 };
 
 // =====================================
@@ -145,6 +150,47 @@ function setupModalEventHandlers() {
     DOM.modalDropArea.addEventListener('click', () => {
       if (DOM.modalFileInput) {
         DOM.modalFileInput.click();
+      }
+    });
+  }
+
+  // Info modal handlers
+  setupInfoModalHandlers();
+}
+
+// =====================================
+// EVENT HANDLERS - INFO MODAL
+// =====================================
+function showInfoModal() {
+  if (DOM.infoModal) {
+    DOM.infoModal.classList.remove(CONFIG.MODAL_HIDDEN_CLASS);
+    DOM.infoModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'false');
+  }
+}
+
+function hideInfoModal() {
+  if (DOM.infoModal) {
+    DOM.infoModal.classList.add(CONFIG.MODAL_HIDDEN_CLASS);
+    DOM.infoModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'true');
+  }
+}
+
+function setupInfoModalHandlers() {
+  // Info button -> open info modal
+  if (DOM.infoBtn) {
+    DOM.infoBtn.addEventListener('click', showInfoModal);
+  }
+
+  // Info modal close button
+  if (DOM.infoModalClose) {
+    DOM.infoModalClose.addEventListener('click', hideInfoModal);
+  }
+
+  // Close info modal when clicking outside
+  if (DOM.infoModal) {
+    DOM.infoModal.addEventListener('click', (e) => {
+      if (e.target === DOM.infoModal) {
+        hideInfoModal();
       }
     });
   }
@@ -348,6 +394,18 @@ function setupGlobalEventHandlers() {
     if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
       e.preventDefault();
       stateRequestRefresh(true);
+    }
+
+    // Info modal shortcut (F1)
+    if (e.key === 'F1') {
+      e.preventDefault();
+      showInfoModal();
+    }
+
+    // Close modals with Escape
+    if (e.key === 'Escape') {
+      hideModal();
+      hideInfoModal();
     }
   });
 

@@ -22,7 +22,10 @@
         <div class="container">
             <div class="header-content">
                 <div class="header-info">
-                    <h1>NanoCloud</h1>
+                    <div class="header-title-row">
+                        <h1>NanoCloud</h1>
+                        <button class="info-btn" id="infoBtn" title="User Guide & Info">ℹ</button>
+                    </div>
                     <p class="subtitle">
                         A minimal, fast, self-hosted cloud server.
                         Click on files to stream or download.
@@ -188,6 +191,90 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="renameCancelBtn">Cancel</button>
                 <button class="btn btn-primary" id="renameConfirmBtn">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content info-modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">ℹ User Guide</h2>
+                <button class="btn btn-secondary" id="infoModalClose">Close</button>
+            </div>
+            <div class="modal-body info-modal-body">
+                <!-- Keyboard Shortcuts Section -->
+                <div class="info-section">
+                    <h3 class="info-section-title">⌨️ Keyboard Shortcuts</h3>
+                    <div class="shortcuts-grid">
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Ctrl/Cmd + U</span>
+                            <span class="shortcut-desc">Open upload modal</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Ctrl/Cmd + A</span>
+                            <span class="shortcut-desc">Select all items</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">F5 / Ctrl+R</span>
+                            <span class="shortcut-desc">Refresh listing</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Delete / Backspace</span>
+                            <span class="shortcut-desc">Delete selected items</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">F2</span>
+                            <span class="shortcut-desc">Rename selected item</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Escape</span>
+                            <span class="shortcut-desc">Deselect all items</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Touchscreen Guide Section -->
+                <div class="info-section">
+                    <h3 class="info-section-title">📱 Touchscreen Guide</h3>
+                    <div class="shortcuts-grid">
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Tap</span>
+                            <span class="shortcut-desc">Open file or folder</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Press & Hold (500ms)</span>
+                            <span class="shortcut-desc">Select item (haptic feedback)</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Tap after selection</span>
+                            <span class="shortcut-desc">Add more items to selection</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Drag & Drop</span>
+                            <span class="shortcut-desc">Upload files anywhere</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GitHub Project Section -->
+                <div class="info-section">
+                    <h3 class="info-section-title">🔗 GitHub Project</h3>
+                    <a href="https://github.com/yourusername/nanocloud" target="_blank" rel="noopener noreferrer" class="github-link">
+                        <span class="github-icon">⚡</span>
+                        <span>View on GitHub</span>
+                        <span class="external-icon">→</span>
+                    </a>
+                </div>
+
+                <!-- Version Information Section -->
+                <div class="info-section">
+                    <h3 class="info-section-title">ℹ️ Version Information</h3>
+                    <div class="version-info">
+                        <div class="version-number">NanoCloud v2.1</div>
+                        <div class="version-desc">A minimal, fast, self-hosted cloud server</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
