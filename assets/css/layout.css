@@ -33,6 +33,13 @@
   margin-bottom: var(--space-1);
 }
 
+.header-logo {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
 .header-info h1 {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);

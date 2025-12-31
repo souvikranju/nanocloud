@@ -1,0 +1,65 @@
+<?php
+// config.local.php.example
+// Example local configuration file for NanoCloud
+//
+// SETUP:
+// 1. Copy this file: cp config.local.php.example config.local.php
+// 2. Edit config.local.php with your custom settings
+// 3. Only set the variables you want to override from config.defaults.php
+//
+// This file shows common customization examples.
+
+declare(strict_types=1);
+
+// ============================================
+// STORAGE CONFIGURATION
+// ============================================
+
+// Storage root directory (absolute path)
+// Uncomment and modify to change the storage location
+// $STORAGE_ROOT = '/home/pi/FTP/dropbox';
+
+// ============================================
+// UPLOAD LIMITS
+// ============================================
+
+// User-defined maximum file size in bytes
+// Examples:
+// 1GB = 1073741824
+// 2GB = 2147483648
+// 5GB = 5368709120
+// 10GB = 10737418240
+// $user_defined_max = 5368709120; // 5GB
+
+// Maximum session size in bytes
+// $MAX_SESSION_BYTES = 5368709120; // 5GB
+
+// ============================================
+// DOWNLOAD SETTINGS
+// ============================================
+
+// Download rate limit in MB/s (0 = unlimited)
+// $DOWNLOAD_RATE_LIMIT_MB = 10;
+
+// ============================================
+// FILE PERMISSIONS
+// ============================================
+
+// Directory permissions (octal notation)
+// 0755 = rwxr-xr-x (owner: full, group/others: read+execute)
+// 0777 = rwxrwxrwx (full access for everyone)
+// $DIR_PERMISSIONS = 0777;
+
+// File permissions (octal notation)
+// 0644 = rw-r--r-- (owner: read+write, group/others: read-only)
+// 0666 = rw-rw-rw- (read+write for everyone)
+// $FILE_PERMISSIONS = 0666;
+
+// ============================================
+// OWNERSHIP (requires appropriate privileges)
+// ============================================
+
+// Change owner for uploaded/created files and directories
+// Leave null to keep default web server user
+// $FILE_OWNER = 'username';
+// $FILE_GROUP = 'groupname';

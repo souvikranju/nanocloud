@@ -20,6 +20,10 @@
     gap: var(--space-3);
   }
 
+  .header-logo {
+    height: 2rem;
+  }
+
   .header-info h1 {
     font-size: var(--font-size-lg);
     margin-bottom: var(--space-1);
@@ -262,6 +266,10 @@
     margin-bottom: var(--space-3);
   }
 
+  .header-logo {
+    height: 1.5rem;
+  }
+
   .header-info h1 {
     font-size: var(--font-size-base);
     margin-bottom: 0;
@@ -382,6 +390,10 @@
   .header-section {
     padding: var(--space-2) 0;
     margin-bottom: var(--space-3);
+  }
+
+  .header-logo {
+    height: 1.5rem;
   }
 
   .header-info h1 {
