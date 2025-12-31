@@ -11,6 +11,7 @@
     <meta charset="UTF-8">
     <title>NanoCloud</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="assets/image/favicon.ico">
     <!-- Modular CSS Architecture -->
     <link rel="stylesheet" href="assets/css/variables.css">
     <link rel="stylesheet" href="assets/css/base.css">
@@ -26,6 +27,7 @@
             <div class="header-content">
                 <div class="header-info">
                     <div class="header-title-row">
+                        <img src="assets/image/logo.png" alt="NanoCloud Logo" class="header-logo">
                         <h1>NanoCloud</h1>
                         <button class="info-btn" id="infoBtn" title="User Guide & Info">ℹ</button>
                     </div>
@@ -35,7 +37,7 @@
                     </p>
                 </div>
                 <div class="storage-card">
-                    <div class="storage-title">Server Storage</div>
+                    <div class="storage-title">Storage</div>
                     <div class="storage-text" id="storageText">Used — of —</div>
                     <div class="storage-bar-wrap">
                         <div class="storage-bar bar-green" id="storageBar"></div>

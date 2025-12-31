@@ -1,0 +1,18 @@
+# User's local configuration file (not tracked by git)
+# Users should create this file to override default settings
+config.local.php
+
+# Temporary files
+.temp/
+*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -175,15 +175,6 @@ if ($fp !== false) {
                 }
             }
         }
-        
-        // More frequent disconnect checks (every 256KB)
-        if ($bytesSent % 262144 === 0) {
-            if (connection_aborted()) {
-                fclose($fp);
-                error_log("Client disconnected at checkpoint: {$sanitizedFile}");
-                exit;
-            }
-        }
     }
     
     fclose($fp);

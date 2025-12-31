@@ -1,6 +1,30 @@
-# NanoCloud v2.1
+# NanoCloud
 
 A minimal, fast, self-hosted cloud storage server with a modern, responsive interface. Upload, organize, and access your files from anywhere with an elegant web interface.
+
+## 📸 Screenshots
+
+### Desktop Interface
+![Desktop View - List Mode](assets/image/desktop-list-view.png)
+*List view with file information*
+
+![Desktop View - Grid Mode](assets/image/desktop-grid-view.png)
+*Grid view with file thumbnails and multi-select capabilities*
+
+![Desktop View - Upload Progress](assets/image/desktop-upload-progress.png)
+*Real-time upload progress with concurrent file uploads*
+
+### Mobile Interface
+![Mobile View - File Browser](screenshots/mobile-file-browser.png)
+*Touch-optimized file browser with responsive design*
+
+![Mobile View - Selection Mode](screenshots/mobile-selection-mode.png)
+*Multi-select with press-and-hold gesture support*
+
+![Mobile View - Actions Menu](screenshots/mobile-actions-menu.png)
+*Mobile-friendly action menu for file operations*
+
+> **Note:** Add your screenshots to the `screenshots/` directory with the filenames shown above.
 
 ## 🚀 Features
 
@@ -24,6 +48,8 @@ A minimal, fast, self-hosted cloud storage server with a modern, responsive inte
 - **Web Server**: Apache, Nginx, or any PHP-compatible server
 - **Storage**: Sufficient disk space for your files
 
+No frameworks, heavy tools - just pure html, JS and CSS.
+
 ## 🛠️ Installation
 
 1. **Clone or download** this repository to your web server directory:
@@ -35,17 +61,14 @@ A minimal, fast, self-hosted cloud storage server with a modern, responsive inte
 2. **Configure PHP settings** in `php.ini`:
    ```ini
    file_uploads = On
-   upload_max_filesize = 2G
-   post_max_size = 2G
+   upload_max_filesize = 2G # As required
+   post_max_size = 2G # As required
    max_file_uploads = 50
-   max_execution_time = 300
-   max_input_time = 300
    ```
 
-3. **Set storage directory** in `config.php`:
-   ```php
-   define('STORAGE_ROOT', '/path/to/your/storage');
-   ```
+3. **Configure NanoCloud**:
+   
+   See the [Configuration System](#configuration-system)
 
 4. **Set permissions**:
    ```bash
@@ -61,9 +84,9 @@ A minimal, fast, self-hosted cloud storage server with a modern, responsive inte
 ## 📁 Project Structure
 
 ```
-nanocloud_v2/
-├── config.php                 # Configuration and constants
-├── index.php                  # Main HTML interface
+nanocloud/
+├── config.php                # Configuration and constants
+├── index.php                 # Main HTML interface
 ├── nanocloud_api.php         # REST API endpoints
 ├── nanocloud_download.php    # File download handler
 ├── nanocloud_lib.php         # Shared utility functions
@@ -101,12 +124,6 @@ nanocloud_v2/
 
 ### Backend (PHP)
 
-**Modular Design:**
-- `config.php` - Centralized configuration with constants
-- `nanocloud_lib.php` - Reusable utility functions
-- `nanocloud_api.php` - RESTful API with action-based routing
-- `nanocloud_download.php` - Optimized file streaming with rate limiting
-
 **Key Features:**
 - Path traversal protection
 - Input sanitization
@@ -118,7 +135,6 @@ nanocloud_v2/
 ### Frontend (JavaScript)
 
 **ES6 Modules:**
-- Separation of concerns with dedicated modules
 - State management with reactive updates
 - Event-driven architecture
 - Optimized rendering with debouncing
@@ -141,51 +157,83 @@ nanocloud_v2/
 - `utilities.css` - Helper classes and animations
 - `responsive.css` - Mobile-first responsive design
 
-**Design System:**
-- Consistent spacing scale
-- Color palette with semantic naming
-- Typography hierarchy
-- Shadow and elevation system
-- Transition timing functions
-
 ## ⚙️ Configuration
 
-### Storage Settings (`config.php`)
+### Configuration System
 
+NanoCloud uses a flexible configuration system that preserves your custom settings during upgrades:
+
+**Files:**
+- `config.defaults.php` - Default settings
+- `config.php` - Configuration loader
+- `config.local.php` - Your custom settings (NOT tracked by git, preserved during upgrades)
+- `config.local.php.example` - Example configuration with all available options
+
+**Setup:**
+
+   ```bash
+   # Copy the example file
+   cp config.local.php.example config.local.php
+   
+   # Edit with your settings
+   nano config.local.php
+   ```
+
+### Available Settings
+
+Edit `config.local.php` to customize these settings:
+
+#### Storage Configuration
 ```php
-// Storage root directory
-define('STORAGE_ROOT', '/local/mnt/workspace');
-
-// File size limits (2GB)
-define('MAX_FILE_BYTES', 2147483648);
-define('MAX_SESSION_BYTES', 2147483648);
-
-// Download rate limit (MB/s, 0 = unlimited)
-define('DOWNLOAD_RATE_LIMIT_MB', 5);
-
-// File permissions
-define('DIR_PERMISSIONS', 0755);
-define('FILE_PERMISSIONS', 0644);
-
-// Optional: Change owner/group
-define('FILE_OWNER', null);
-define('FILE_GROUP', null);
+// Storage root directory (absolute path)
+$STORAGE_ROOT = '/path/to/your/storage';
 ```
+
+#### Upload Limits
+```php
+// User-defined maximum file size in bytes
+$user_defined_max = 5368709120; // 5GB
+
+// Maximum session size in bytes
+$MAX_SESSION_BYTES = 5368709120; // 5GB
+```
+
+#### Download Settings
+```php
+// Download rate limit in MB/s (0 = unlimited)
+$DOWNLOAD_RATE_LIMIT_MB = 10;
+```
+
+#### File Permissions
+```php
+// Directory permissions (octal notation)
+$DIR_PERMISSIONS = 0755; // rwxr-xr-x
+
+// File permissions (octal notation)
+$FILE_PERMISSIONS = 0644; // rw-r--r--
+```
+
+#### Ownership (requires appropriate privileges)
+```php
+// Change owner for uploaded/created files
+$FILE_OWNER = 'username';
+$FILE_GROUP = 'groupname';
+```
+
+### How It Works
+
+1. **Load Defaults**: `config.defaults.php` is loaded first (default configuration)
+2. **Apply Overrides**: If `config.local.php` exists, it overrides the defaults
 
 ### Frontend Constants (`assets/js/constants.js`)
 
 ```javascript
-// API endpoints
-export const API_URL = 'nanocloud_api.php';
-export const DOWNLOAD_BASE = 'nanocloud_download.php';
-
 // Upload settings
 export const MAX_CONCURRENT_UPLOADS = 3;
 export const UPLOAD_PROGRESS_AUTO_HIDE_MS = 5000;
 
 // UI settings
 export const REFRESH_DEBOUNCE_MS = 300;
-export const VIEW_MODE_STORAGE_KEY = 'nanocloud-view-mode';
 ```
 
 ## 🎮 Usage
@@ -284,11 +332,6 @@ export const VIEW_MODE_STORAGE_KEY = 'nanocloud-view-mode';
    tail -f /var/log/php-fpm/error.log
    ```
 
-### Storage Not Updating
-
-- Ensure `disk_free_space()` and `disk_total_space()` work on your filesystem
-- Check if storage directory is mounted correctly
-
 ### Permission Errors
 
 - Verify web server user has write access:
@@ -296,34 +339,6 @@ export const VIEW_MODE_STORAGE_KEY = 'nanocloud-view-mode';
   sudo chown -R www-data:www-data /path/to/storage
   sudo chmod -R 755 /path/to/storage
   ```
-
-## 🔄 Recent Changes (v2.1)
-
-### Code Quality & Optimization
-- ✅ Eliminated duplicate logic across modules
-- ✅ Consolidated repetitive patterns into reusable functions
-- ✅ Improved naming conventions for clarity
-- ✅ Enhanced error handling and logging
-
-### Structural Improvements
-- ✅ Created modular CSS architecture (6 files)
-- ✅ Implemented design system with CSS variables
-- ✅ Separated concerns in JavaScript modules
-- ✅ Centralized configuration and constants
-- ✅ Optimized import statements
-
-### CSS Optimization
-- ✅ Removed unused selectors and properties
-- ✅ Eliminated redundant styles
-- ✅ Consolidated duplicate patterns
-- ✅ Optimized specificity
-- ✅ Reduced file size through efficient organization
-
-### Documentation
-- ✅ Updated README with comprehensive project overview
-- ✅ Documented architecture and design decisions
-- ✅ Added configuration examples
-- ✅ Included troubleshooting guide
 
 ## 📄 License
 

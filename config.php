@@ -1,39 +1,52 @@
 <?php
 // config.php
-// Centralized configuration/constants for the upload app.
-
-// required config for php.ini
-// file_uploads = On
-// upload_max_filesize = 2G     # Must match or exceed MAX_UPLOAD_BYTES
-// post_max_size = 2G           # Must be >= upload_max_filesize
-// max_file_uploads = 50        # Number of files per request
+// Configuration loader for NanoCloud
 
 declare(strict_types=1);
 
-// Storage root directory (absolute path)
-// Example: define('STORAGE_ROOT', '/home/pi/FTP/dropbox');
-define('STORAGE_ROOT', '/local/mnt/workspace');
+// Load default configuration
+require_once __DIR__ . '/config.defaults.php';
 
-// Limits (2GB)
-define('MAX_FILE_BYTES', 2147483648); // 2 * 1024 * 1024 * 1024
-define('MAX_SESSION_BYTES', 2147483648);
+// Load user's custom configuration if it exists
+$local_config = __DIR__ . '/config.local.php';
+if (file_exists($local_config)) {
+    require_once $local_config;
+}
 
-// Download rate limit in MB/s (0 = unlimited)
-define('DOWNLOAD_RATE_LIMIT_MB', 5);
+// Helper function to convert PHP ini size notation to bytes
+function parse_size_to_bytes(string $size): int
+{
+    $size = trim($size);
+    $last = strtolower($size[strlen($size) - 1]);
+    $value = (int)$size;
+    
+    switch ($last) {
+        case 'g':
+            $value *= 1024;
+        case 'm':
+            $value *= 1024;
+        case 'k':
+            $value *= 1024;
+    }
+    
+    return $value;
+}
 
-// File and directory permissions
-// Directory permissions: 0755 = rwxr-xr-x (owner: full, group/others: read+execute)
-// File permissions: 0644 = rw-r--r-- (owner: read+write, group/others: read-only)
-define('DIR_PERMISSIONS', 0755);
-define('FILE_PERMISSIONS', 0644);
+// Define constants from variables
+define('STORAGE_ROOT', $STORAGE_ROOT);
+define('MAX_SESSION_BYTES', $MAX_SESSION_BYTES);
+define('DOWNLOAD_RATE_LIMIT_MB', $DOWNLOAD_RATE_LIMIT_MB);
+define('DIR_PERMISSIONS', $DIR_PERMISSIONS);
+define('FILE_PERMISSIONS', $FILE_PERMISSIONS);
+define('FILE_OWNER', $FILE_OWNER);
+define('FILE_GROUP', $FILE_GROUP);
 
-// Optional: Change owner/group for uploaded/created files and directories
-// Leave null to keep default web server user (typically www-data)
-// Note: Changing ownership typically requires root privileges or specific server configuration
-define('FILE_OWNER', null);   // e.g., 'username' or null
-define('FILE_GROUP', null);   // e.g., 'groupname' or null
+// Calculate MAX_FILE_BYTES as minimum of PHP settings and user-defined limit
+$upload_max = parse_size_to_bytes(ini_get('upload_max_filesize'));
+$post_max = parse_size_to_bytes(ini_get('post_max_size'));
+define('MAX_FILE_BYTES', min($user_defined_max, $upload_max, $post_max));
 
-// PHP runtime configuration notes:
+// PHP runtime configuration
 ini_set('max_execution_time', '300');
 ini_set('max_input_time', '300');
 
