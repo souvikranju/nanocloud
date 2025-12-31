@@ -1,11 +1,11 @@
 // state.js
-// Centralized client-side state and constants for the upload app.
-// This module holds global configuration and mutable UI state in one place,
-// avoiding scattered globals across the codebase.
+// Centralized client-side state management for the upload app.
+// This module holds mutable UI state and provides state management functions.
 
-/** API endpoints used by the frontend. */
-export const API_URL = 'nanocloud_api.php';
-export const DOWNLOAD_BASE = 'nanocloud_download.php';
+import { API_URL, DOWNLOAD_BASE, REFRESH_DEBOUNCE_MS } from './constants.js';
+
+// Re-export API constants for backward compatibility
+export { API_URL, DOWNLOAD_BASE };
 
 /** Current relative path within the uploads tree. Empty string means root. */
 let currentPath = '';
@@ -20,7 +20,6 @@ const nameSet = new Set();
 let currentRequestId = 0;
 let pendingRefresh = false;
 let lastRefreshTime = 0;
-const REFRESH_DEBOUNCE_MS = 300; // Debounce rapid refresh calls - increased for better navigation UX
 
 /** Auto-refresh callback - set by list module */
 let autoRefreshCallback = null;

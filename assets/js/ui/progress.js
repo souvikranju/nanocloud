@@ -1,17 +1,14 @@
 // ui/progress.js
-// Upload progress panel management. Creates per-file progress items and exposes simple controls.
+// Modern upload progress tracking and UI management with enhanced visual feedback
+// Integrates with the new design system and toast notifications
 
-/** @type {HTMLElement|null} */
-let uploadSection = null;
-/** @type {HTMLElement|null} */
-let uploadProgressList = null;
-/** @type {HTMLElement|null} */
-let fabBtn = null;
-/** @type {HTMLElement|null} */
-let uploadModal = null;
+/** @type {HTMLElement|null} */ let uploadSection = null;
+/** @type {HTMLElement|null} */ let uploadProgressList = null;
+/** @type {HTMLElement|null} */ let fabBtn = null;
+/** @type {HTMLElement|null} */ let uploadModal = null;
 
 /**
- * Initialize the progress UI module with DOM elements.
+ * Initialize progress UI references
  * @param {{uploadSection:HTMLElement, uploadProgressList:HTMLElement, fabBtn:HTMLElement, uploadModal:HTMLElement}} refs
  */
 export function initProgress(refs) {
@@ -21,25 +18,49 @@ export function initProgress(refs) {
   uploadModal = refs.uploadModal || null;
 }
 
-/** Show the floating action button (FAB). */
+/**
+ * Show the floating action button (FAB)
+ */
 export function showFab() {
-  if (fabBtn) fabBtn.style.display = 'block';
+  if (fabBtn) {
+    fabBtn.style.display = 'flex';
+    fabBtn.classList.add('animate-fade-in');
+  }
 }
-/** Hide the floating action button (FAB). */
+
+/**
+ * Hide the floating action button (FAB)
+ */
 export function hideFab() {
-  if (fabBtn) fabBtn.style.display = 'none';
+  if (fabBtn) {
+    fabBtn.style.display = 'none';
+    fabBtn.classList.remove('animate-fade-in');
+  }
 }
 
-/** Show the upload progress panel. */
+/**
+ * Show the upload progress panel with animation
+ */
 export function showPanel() {
-  if (uploadSection) uploadSection.style.display = 'block';
-}
-/** Hide the upload progress panel. */
-export function hidePanel() {
-  if (uploadSection) uploadSection.style.display = 'none';
+  if (uploadSection) {
+    uploadSection.classList.add('visible');
+    uploadSection.classList.add('animate-slide-in-up');
+  }
 }
 
-/** Hide the upload modal if it is visible. */
+/**
+ * Hide the upload progress panel with animation
+ */
+export function hidePanel() {
+  if (uploadSection) {
+    uploadSection.classList.remove('visible');
+    uploadSection.classList.remove('animate-slide-in-up');
+  }
+}
+
+/**
+ * Hide the upload modal
+ */
 export function hideModal() {
   if (uploadModal) {
     uploadModal.classList.add('hidden');
@@ -47,70 +68,144 @@ export function hideModal() {
   }
 }
 
-/** Remove all progress items from the list. */
+/**
+ * Clear all progress items from the list
+ */
 export function clearAll() {
-  if (uploadProgressList) uploadProgressList.innerHTML = '';
+  if (uploadProgressList) {
+    // Fade out existing items before clearing
+    const items = uploadProgressList.querySelectorAll('.upload-progress-item');
+    items.forEach(item => {
+      item.style.opacity = '0';
+      item.style.transform = 'translateX(100%)';
+    });
+    
+    setTimeout(() => {
+      uploadProgressList.innerHTML = '';
+    }, 300);
+  }
 }
 
 /**
- * Create a new progress item for a file and append it to the list.
- * Returns an object with small helpers to manipulate the item.
- * @param {string} displayName - original file name for display
- * @param {string} sanitized - sanitized name (for matching after server reply)
+ * Create and return a modern progress item UI controller
+ * @param {string} originalName - Original filename
+ * @param {string} sanitizedName - Sanitized filename
  * @returns {{setProgress:(pct:number)=>void, markComplete:()=>void, markError:()=>void, setErrorMessage:(msg:string)=>void, element:HTMLElement}}
  */
-export function createItem(displayName, sanitized) {
+export function createItem(originalName, sanitizedName) {
+  if (!uploadProgressList) {
+    return {
+      setProgress: () => {},
+      markComplete: () => {},
+      markError: () => {},
+      setErrorMessage: () => {},
+      element: null
+    };
+  }
+
+  // Create main item container
   const itemEl = document.createElement('div');
-  itemEl.className = 'upload-progress-item';
-  itemEl.textContent = displayName;
-  itemEl.dataset.orig = displayName;
-  itemEl.dataset.sanitized = sanitized;
+  itemEl.className = 'upload-progress-item animate-fade-in';
+  itemEl.dataset.orig = originalName;
+  itemEl.dataset.sanitized = sanitizedName;
 
-  const progressWrap = document.createElement('div');
-  progressWrap.className = 'progress-bar-wrap';
+  // Create file info section
+  const fileInfoEl = document.createElement('div');
+  fileInfoEl.className = 'upload-file-info';
 
-  const progressBar = document.createElement('div');
-  progressBar.className = 'progress-bar';
-  progressWrap.appendChild(progressBar);
-  itemEl.appendChild(progressWrap);
+  // File name
+  const nameEl = document.createElement('div');
+  nameEl.className = 'upload-file-name';
+  nameEl.textContent = originalName;
+  nameEl.title = originalName; // Tooltip for long names
 
+  // Status indicator
+  const statusEl = document.createElement('div');
+  statusEl.className = 'upload-status uploading';
+  statusEl.textContent = 'Uploading...';
+
+  fileInfoEl.appendChild(nameEl);
+  fileInfoEl.appendChild(statusEl);
+
+  // Create progress bar
+  const progressWrapEl = document.createElement('div');
+  progressWrapEl.className = 'progress-bar-wrap';
+
+  const progressBarEl = document.createElement('div');
+  progressBarEl.className = 'progress-bar';
+  progressBarEl.style.width = '0%';
+
+  progressWrapEl.appendChild(progressBarEl);
+
+  // Create error message container (hidden by default)
   const errorMsgEl = document.createElement('div');
-  errorMsgEl.className = 'error-message';
+  errorMsgEl.className = 'upload-error-message';
   errorMsgEl.style.display = 'none';
+
+  // Assemble the item
+  itemEl.appendChild(fileInfoEl);
+  itemEl.appendChild(progressWrapEl);
   itemEl.appendChild(errorMsgEl);
 
-  if (uploadProgressList) uploadProgressList.appendChild(itemEl);
+  // Add to list with animation
+  uploadProgressList.appendChild(itemEl);
 
-  function setProgress(pct) {
-    const pctClamped = Math.max(0, Math.min(100, pct || 0));
-    progressBar.style.width = pctClamped + '%';
-  }
-  function markComplete() {
-    setProgress(100);
-    itemEl.classList.add('completed');
-  }
-  function markError() {
-    itemEl.classList.add('error');
-  }
-  function setErrorMessage(msg) {
-    errorMsgEl.textContent = msg;
-    errorMsgEl.style.display = 'block';
-  }
+  // Trigger entrance animation
+  requestAnimationFrame(() => {
+    itemEl.style.opacity = '1';
+    itemEl.style.transform = 'translateX(0)';
+  });
 
-  return { setProgress, markComplete, markError, setErrorMessage, element: itemEl };
-}
+  // Return controller object
+  return {
+    setProgress(pct) {
+      const percentage = Math.max(0, Math.min(100, pct || 0));
+      progressBarEl.style.width = percentage + '%';
+      
+      // Update status text
+      if (percentage < 100) {
+        statusEl.textContent = `${Math.round(percentage)}%`;
+      }
+    },
 
-/**
- * Try to find a created progress item by sanitized or original name.
- * @param {string} name
- * @returns {HTMLElement|null}
- */
-export function findItem(name) {
-  if (!uploadProgressList || !name) return null;
-  const items = Array.from(uploadProgressList.children);
-  for (const it of items) {
-    const ds = /** @type {HTMLElement} */(it).dataset || {};
-    if (ds.sanitized === name || ds.orig === name) return /** @type {HTMLElement} */(it);
-  }
-  return null;
+    markComplete() {
+      progressBarEl.style.width = '100%';
+      progressBarEl.classList.add('complete');
+      statusEl.className = 'upload-status complete';
+      statusEl.textContent = 'Complete';
+      itemEl.classList.add('completed');
+      
+      // Add success animation
+      itemEl.classList.add('animate-pulse');
+      setTimeout(() => {
+        itemEl.classList.remove('animate-pulse');
+      }, 1000);
+    },
+
+    markError() {
+      progressBarEl.classList.add('error');
+      statusEl.className = 'upload-status error';
+      statusEl.textContent = 'Failed';
+      itemEl.classList.add('error');
+      
+      // Add error shake animation
+      itemEl.style.animation = 'shake 0.5s ease-in-out';
+      setTimeout(() => {
+        itemEl.style.animation = '';
+      }, 500);
+    },
+
+    setErrorMessage(msg) {
+      if (msg) {
+        errorMsgEl.textContent = msg;
+        errorMsgEl.style.display = 'block';
+        errorMsgEl.classList.add('animate-fade-in');
+      } else {
+        errorMsgEl.style.display = 'none';
+        errorMsgEl.classList.remove('animate-fade-in');
+      }
+    },
+
+    element: itemEl
+  };
 }

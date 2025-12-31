@@ -19,16 +19,21 @@ session_start();
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'config.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'nanocloud_lib.php';
 
-// Upload root directory (single configurable place)
-$uploadDir = UPLOAD_DIR;
+// Close session early to prevent session locking
+// This allows multiple API requests to be processed concurrently
+// Session data is still available in $_SESSION but won't block other requests
+session_write_close();
+
+// Storage root directory (single configurable place)
+$uploadDir = STORAGE_ROOT;
 $uploadDirReal = null;
 
-// Ensure upload directory exists, create if not
+// Ensure storage directory exists, create if not
 if (!is_dir($uploadDir)) {
-    if (!mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+    if (!mkdir($uploadDir, DIR_PERMISSIONS, true) && !is_dir($uploadDir)) {
         send_json([
             'success' => false,
-            'message' => 'Unable to create upload directory.',
+            'message' => 'Unable to create storage directory.',
         ]);
         exit;
     }
@@ -38,7 +43,7 @@ $uploadDirReal = realpath($uploadDir);
 // Ensure transactional temp dir exists
 $tmpDir = get_tmp_dir();
 if (!is_dir($tmpDir)) {
-    @mkdir($tmpDir, 0755, true);
+    @mkdir($tmpDir, DIR_PERMISSIONS, true);
 }
 
 /**
@@ -322,6 +327,9 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
         // Remove from inflight since rename succeeded
         $GLOBALS['inflightTmpPaths'] = array_filter($GLOBALS['inflightTmpPaths'], fn($p) => $p !== $tmpPart);
 
+        // Apply file permissions and ownership
+        apply_permissions($finalPath, false);
+
         // Update session total only on success
         $sessionTotal += $size;
 
@@ -455,7 +463,7 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
         return;
     }
 
-    if (!@mkdir($newDir, 0755, false)) {
+    if (!@mkdir($newDir, DIR_PERMISSIONS, false)) {
         send_json([
             'success' => false,
             'message' => 'Failed to create directory.',
@@ -463,6 +471,9 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
         ]);
         return;
     }
+
+    // Apply ownership if configured
+    apply_permissions($newDir, true);
 
     send_json([
         'success' => true,
@@ -768,9 +779,10 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
 
     $itemType = $_POST['itemType'] ?? '';
     $itemName = $_POST['itemName'] ?? '';
-    $targetPath = $_POST['targetPath'] ?? '';
+    $targetPath = $_POST['targetPath'] ?? null;
     
-    if ($itemType === '' || $itemName === '' || $targetPath === '') {
+    // Check for missing parameters (but allow empty string for targetPath which means root)
+    if ($itemType === '' || $itemName === '' || $targetPath === null) {
         send_json([
             'success' => false,
             'message' => 'Missing item type, item name, or target path.',
@@ -859,6 +871,11 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'storage' => storage_info($uploadDir),
         ]);
         return;
+    }
+
+    // Apply permissions to moved files (directories maintain their permissions)
+    if ($itemType === 'file') {
+        apply_permissions($targetPathFull, false);
     }
 
     send_json([

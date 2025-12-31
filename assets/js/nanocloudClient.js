@@ -1,8 +1,8 @@
-// apiClient.js
+// nanocloudClient.js
 // Thin client for server endpoints. Provides Promise-based wrappers.
 // Keeps fetch/XHR details here so the rest of the app stays clean.
 
-import { API_URL } from './state.js';
+import { API_URL } from './constants.js';
 
 /**
  * Internal helper: GET JSON from API with query params.
@@ -89,6 +89,56 @@ export function deleteDir(path, dirname) {
 }
 
 /**
+ * Rename a file within the given path.
+ * @param {string} path
+ * @param {string} filename
+ * @param {string} newName
+ * @returns {Promise<any>}
+ */
+export function renameFile(path, filename, newName) {
+  const form = new FormData();
+  form.append('action', 'rename_file');
+  form.append('path', path);
+  form.append('filename', filename);
+  form.append('newName', newName);
+  return postForm(form);
+}
+
+/**
+ * Rename a directory within the given path.
+ * @param {string} path
+ * @param {string} dirname
+ * @param {string} newName
+ * @returns {Promise<any>}
+ */
+export function renameDir(path, dirname, newName) {
+  const form = new FormData();
+  form.append('action', 'rename_dir');
+  form.append('path', path);
+  form.append('name', dirname);
+  form.append('newName', newName);
+  return postForm(form);
+}
+
+/**
+ * Move a file or directory to a different path.
+ * @param {string} sourcePath - Current path of the item
+ * @param {string} itemType - 'file' or 'dir'
+ * @param {string} itemName - Name of the item to move
+ * @param {string} targetPath - Destination path
+ * @returns {Promise<any>}
+ */
+export function moveItem(sourcePath, itemType, itemName, targetPath) {
+  const form = new FormData();
+  form.append('action', 'move');
+  form.append('path', sourcePath);
+  form.append('itemType', itemType);
+  form.append('itemName', itemName);
+  form.append('targetPath', targetPath);
+  return postForm(form);
+}
+
+/**
  * Upload a single file using XHR to get progress events.
  * Resolves with the server's single-file result ({success, filename, message}) or rejects on error.
  * @param {File} file
@@ -130,54 +180,4 @@ export function uploadSingle(file, path, onProgress) {
     xhr.onerror = () => reject(new Error('Network error'));
     xhr.send(formData);
   });
-}
-
-/**
- * Rename a file within the given path.
- * @param {string} path
- * @param {string} filename
- * @param {string} newName
- * @returns {Promise<any>}
- */
-export function renameFile(path, filename, newName) {
-  const form = new FormData();
-  form.append('action', 'rename_file');
-  form.append('path', path);
-  form.append('filename', filename);
-  form.append('newName', newName);
-  return postForm(form);
-}
-
-/**
- * Rename a directory within the given path.
- * @param {string} path
- * @param {string} name
- * @param {string} newName
- * @returns {Promise<any>}
- */
-export function renameDir(path, name, newName) {
-  const form = new FormData();
-  form.append('action', 'rename_dir');
-  form.append('path', path);
-  form.append('name', name);
-  form.append('newName', newName);
-  return postForm(form);
-}
-
-/**
- * Move a file or directory to a different path.
- * @param {string} path - Source path
- * @param {string} itemType - 'file' or 'dir'
- * @param {string} itemName - Name of item to move
- * @param {string} targetPath - Target directory path
- * @returns {Promise<any>}
- */
-export function moveItem(path, itemType, itemName, targetPath) {
-  const form = new FormData();
-  form.append('action', 'move');
-  form.append('path', path);
-  form.append('itemType', itemType);
-  form.append('itemName', itemName);
-  form.append('targetPath', targetPath);
-  return postForm(form);
 }

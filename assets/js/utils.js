@@ -73,15 +73,30 @@ export function sanitizeSegment(seg) {
 }
 
 /**
- * Determine if a filename (or entry with a name) is viewable inline by the browser.
- * Supports common image/audio/video types to open in a new tab, otherwise download.
- * @param {string|{name?:string}} entry
- * @returns {boolean}
+ * Format date for display
+ * @param {number} timestamp - Unix timestamp
+ * @returns {string}
  */
-export function isOpenable(entry) {
-  const name = (entry && typeof entry === 'object' && entry.name ? entry.name : String(entry || '')).toLowerCase();
-  if (name.match(/\.(jpe?g|png|gif|webp|bmp|svg)$/)) return true;
-  if (name.match(/\.(mp4|webm|ogg|mov|mkv)$/)) return true;
-  if (name.match(/\.(mp3|wav|flac|aac|ogg)$/)) return true;
-  return false;
+export function formatDate(timestamp) {
+  if (!timestamp) return '';
+  
+  const date = new Date(timestamp * 1000);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    return 'Today ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (diffDays === 1) {
+    return 'Yesterday ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (diffDays < 7) {
+    return date.toLocaleDateString([], { weekday: 'short' }) + ' ' + 
+           date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else {
+    return date.toLocaleDateString([], { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  }
 }
