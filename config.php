@@ -10,9 +10,9 @@
 
 declare(strict_types=1);
 
-// Upload root directory (absolute)
-// define('UPLOAD_DIR', '/home/pi/FTP/dropbox');
-define('UPLOAD_DIR', '/local/mnt/workspace');
+// Storage root directory (absolute path)
+// Example: define('STORAGE_ROOT', '/home/pi/FTP/dropbox');
+define('STORAGE_ROOT', '/local/mnt/workspace');
 
 // Limits (2GB)
 define('MAX_FILE_BYTES', 2147483648); // 2 * 1024 * 1024 * 1024
@@ -37,8 +37,8 @@ define('FILE_GROUP', null);   // e.g., 'groupname' or null
 ini_set('max_execution_time', '300');
 ini_set('max_input_time', '300');
 
-// Derived tmp dir inside uploads
+// Derived tmp dir inside storage root
 function get_tmp_dir(): string
 {
-    return UPLOAD_DIR . DIRECTORY_SEPARATOR . '.temp';
+    return STORAGE_ROOT . DIRECTORY_SEPARATOR . '.temp';
 }

@@ -24,16 +24,16 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'nanocloud_lib.php';
 // Session data is still available in $_SESSION but won't block other requests
 session_write_close();
 
-// Upload root directory (single configurable place)
-$uploadDir = UPLOAD_DIR;
+// Storage root directory (single configurable place)
+$uploadDir = STORAGE_ROOT;
 $uploadDirReal = null;
 
-// Ensure upload directory exists, create if not
+// Ensure storage directory exists, create if not
 if (!is_dir($uploadDir)) {
     if (!mkdir($uploadDir, DIR_PERMISSIONS, true) && !is_dir($uploadDir)) {
         send_json([
             'success' => false,
-            'message' => 'Unable to create upload directory.',
+            'message' => 'Unable to create storage directory.',
         ]);
         exit;
     }

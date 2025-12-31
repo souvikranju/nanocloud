@@ -1,8 +1,8 @@
-// apiClient.js
+// nanocloudClient.js
 // Thin client for server endpoints. Provides Promise-based wrappers.
 // Keeps fetch/XHR details here so the rest of the app stays clean.
 
-import { API_URL } from './state.js';
+import { API_URL } from './constants.js';
 
 /**
  * Internal helper: GET JSON from API with query params.

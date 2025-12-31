@@ -17,11 +17,11 @@ session_write_close();
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'config.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'nanocloud_lib.php';
 
-$uploadDir = UPLOAD_DIR;
+$uploadDir = STORAGE_ROOT;
 $uploadDirReal = realpath($uploadDir);
 if ($uploadDirReal === false) {
     http_response_code(500);
-    echo 'Upload root not available.';
+    echo 'Storage root not available.';
     exit;
 }
 

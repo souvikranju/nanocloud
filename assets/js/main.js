@@ -3,6 +3,12 @@
 // Wires DOM events, initializes UI modules, fetches server info and listings,
 // and delegates uploads to the uploader orchestrator.
 
+import { 
+  DRAG_HOVER_CLASS, 
+  MODAL_HIDDEN_CLASS, 
+  MODAL_ARIA_HIDDEN,
+  KEYBOARD_SHORTCUTS 
+} from './constants.js';
 import { getCurrentPath, setMaxFileBytes, hasExistingName } from './state.js';
 import { parentPath, sanitizeSegment, formatBytes } from './utils.js';
 import { initProgress, showFab } from './ui/progress.js';
@@ -12,14 +18,6 @@ import { requestRefresh as stateRequestRefresh, setCurrentPathWithRefresh } from
 import { info as apiInfo, createDir as apiCreateDir } from './nanocloudClient.js';
 import { uploadFiles } from './uploader.js';
 
-// =====================================
-// CONFIGURATION & CONSTANTS
-// =====================================
-const CONFIG = {
-  DRAG_HOVER_CLASS: 'dragover',
-  MODAL_HIDDEN_CLASS: 'hidden',
-  MODAL_ARIA_HIDDEN: 'aria-hidden'
-};
 
 // =====================================
 // DOM REFERENCES (grouped by concern)
@@ -103,13 +101,13 @@ function initializeModules() {
 // EVENT HANDLERS - MODAL MANAGEMENT
 // =====================================
 function showModal() {
-  DOM.uploadModal.classList.remove(CONFIG.MODAL_HIDDEN_CLASS);
-  DOM.uploadModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'false');
+  DOM.uploadModal.classList.remove(MODAL_HIDDEN_CLASS);
+  DOM.uploadModal.setAttribute(MODAL_ARIA_HIDDEN, 'false');
 }
 
 function hideModal() {
-  DOM.uploadModal.classList.add(CONFIG.MODAL_HIDDEN_CLASS);
-  DOM.uploadModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'true');
+  DOM.uploadModal.classList.add(MODAL_HIDDEN_CLASS);
+  DOM.uploadModal.setAttribute(MODAL_ARIA_HIDDEN, 'true');
 }
 
 function setupModalEventHandlers() {
@@ -163,15 +161,15 @@ function setupModalEventHandlers() {
 // =====================================
 function showInfoModal() {
   if (DOM.infoModal) {
-    DOM.infoModal.classList.remove(CONFIG.MODAL_HIDDEN_CLASS);
-    DOM.infoModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'false');
+    DOM.infoModal.classList.remove(MODAL_HIDDEN_CLASS);
+    DOM.infoModal.setAttribute(MODAL_ARIA_HIDDEN, 'false');
   }
 }
 
 function hideInfoModal() {
   if (DOM.infoModal) {
-    DOM.infoModal.classList.add(CONFIG.MODAL_HIDDEN_CLASS);
-    DOM.infoModal.setAttribute(CONFIG.MODAL_ARIA_HIDDEN, 'true');
+    DOM.infoModal.classList.add(MODAL_HIDDEN_CLASS);
+    DOM.infoModal.setAttribute(MODAL_ARIA_HIDDEN, 'true');
   }
 }
 
@@ -223,13 +221,13 @@ function setupDropArea(element) {
 function handleDragEnterOver(event) {
   event.preventDefault();
   event.stopPropagation();
-  event.currentTarget.classList.add(CONFIG.DRAG_HOVER_CLASS);
+  event.currentTarget.classList.add(DRAG_HOVER_CLASS);
 }
 
 function handleDragLeaveDrop(event) {
   event.preventDefault();
   event.stopPropagation();
-  event.currentTarget.classList.remove(CONFIG.DRAG_HOVER_CLASS);
+  event.currentTarget.classList.remove(DRAG_HOVER_CLASS);
 }
 
 function handleFileDrop(event) {
@@ -385,25 +383,25 @@ function setupGlobalEventHandlers() {
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     // Upload shortcut (Ctrl/Cmd + U)
-    if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+    if ((e.ctrlKey || e.metaKey) && e.key === KEYBOARD_SHORTCUTS.UPLOAD) {
       e.preventDefault();
       showModal();
     }
     
     // Refresh shortcut (F5 or Ctrl/Cmd + R)
-    if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
+    if (e.key === KEYBOARD_SHORTCUTS.REFRESH_ALT || ((e.ctrlKey || e.metaKey) && e.key === KEYBOARD_SHORTCUTS.REFRESH)) {
       e.preventDefault();
       stateRequestRefresh(true);
     }
 
     // Info modal shortcut (F1)
-    if (e.key === 'F1') {
+    if (e.key === KEYBOARD_SHORTCUTS.HELP) {
       e.preventDefault();
       showInfoModal();
     }
 
     // Close modals with Escape
-    if (e.key === 'Escape') {
+    if (e.key === KEYBOARD_SHORTCUTS.ESCAPE) {
       hideModal();
       hideInfoModal();
     }

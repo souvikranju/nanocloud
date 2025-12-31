@@ -2,7 +2,14 @@
 // File list rendering with grid/list views
 // Focused on rendering responsibilities only
 
-import { DOWNLOAD_BASE } from '../state.js';
+import { 
+  DOWNLOAD_BASE, 
+  VIEW_MODE_GRID, 
+  VIEW_MODE_LIST, 
+  VIEW_MODE_STORAGE_KEY,
+  SELECTED_CLASS,
+  ACTIVE_CLASS
+} from '../constants.js';
 import { joinPath } from '../utils.js';
 import { list as apiList } from '../nanocloudClient.js';
 import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh } from '../state.js';
@@ -46,7 +53,7 @@ import {
 /** @type {HTMLElement|null} */ let listViewBtn = null;
 
 // State
-let currentViewMode = 'list'; // 'grid' or 'list' - default to list view
+let currentViewMode = VIEW_MODE_LIST; // Default to list view
 let currentItems = [];
 
 /**
@@ -131,7 +138,7 @@ function setupViewToggle() {
       e.stopPropagation();
       e.stopImmediatePropagation();
       if (!gridViewBtn.disabled) {
-        switchView('grid');
+        switchView(VIEW_MODE_GRID);
       }
     }, true);
   }
@@ -142,7 +149,7 @@ function setupViewToggle() {
       e.stopPropagation();
       e.stopImmediatePropagation();
       if (!listViewBtn.disabled) {
-        switchView('list');
+        switchView(VIEW_MODE_LIST);
       }
     }, true);
   }
@@ -150,7 +157,7 @@ function setupViewToggle() {
 
 /**
  * Switch between grid and list view
- * @param {'grid'|'list'} mode
+ * @param {string} mode - VIEW_MODE_GRID or VIEW_MODE_LIST
  */
 function switchView(mode) {
   if (mode === currentViewMode) return;
@@ -158,24 +165,24 @@ function switchView(mode) {
   currentViewMode = mode;
   
   if (gridViewBtn && listViewBtn) {
-    gridViewBtn.classList.toggle('active', mode === 'grid');
-    listViewBtn.classList.toggle('active', mode === 'list');
+    gridViewBtn.classList.toggle(ACTIVE_CLASS, mode === VIEW_MODE_GRID);
+    listViewBtn.classList.toggle(ACTIVE_CLASS, mode === VIEW_MODE_LIST);
   }
   
   if (fileListEl) {
-    fileListEl.className = mode === 'grid' ? 'file-grid' : 'file-list';
+    fileListEl.className = mode === VIEW_MODE_GRID ? 'file-grid' : 'file-list';
   }
   
   renderItems(currentItems);
-  localStorage.setItem('nanocloud-view-mode', mode);
+  localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
 }
 
 /**
  * Load saved view preference
  */
 function loadViewPreference() {
-  const savedMode = localStorage.getItem('nanocloud-view-mode');
-  if (savedMode === 'list' || savedMode === 'grid') {
+  const savedMode = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+  if (savedMode === VIEW_MODE_LIST || savedMode === VIEW_MODE_GRID) {
     switchView(savedMode);
   }
 }
@@ -304,7 +311,7 @@ export function renderItems(items) {
   
   emptyStateEl.style.display = 'none';
 
-  if (currentViewMode === 'grid') {
+  if (currentViewMode === VIEW_MODE_GRID) {
     renderGridView(currentItems);
   } else {
     renderListView(currentItems);

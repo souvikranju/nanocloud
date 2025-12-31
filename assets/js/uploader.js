@@ -3,6 +3,7 @@
 // Validates files, shows a progress panel, uploads with limited concurrency,
 // updates UI on completion, and refreshes the listing.
 
+import { MAX_CONCURRENT_UPLOADS, UPLOAD_PROGRESS_AUTO_HIDE_MS } from './constants.js';
 import { getCurrentPath, getMaxFileBytes, hasExistingName, markExistingName, requestRefresh } from './state.js';
 import { sanitizeFilename, formatBytes } from './utils.js';
 import { showError } from './ui/toast.js';
@@ -42,9 +43,9 @@ function validateFiles(files) {
  * Upload files with progress and concurrency limiting.
  * This function aims to be flat and readable, avoiding deep nesting.
  * @param {FileList|File[]} fileList
- * @param {number} [concurrency=3] how many uploads to run in parallel
+ * @param {number} [concurrency] how many uploads to run in parallel (defaults to MAX_CONCURRENT_UPLOADS)
  */
-export async function uploadFiles(fileList, concurrency = 3) {
+export async function uploadFiles(fileList, concurrency = MAX_CONCURRENT_UPLOADS) {
   const files = Array.from(fileList || []);
   if (files.length === 0) return;
 
@@ -112,5 +113,5 @@ export async function uploadFiles(fileList, concurrency = 3) {
     clearAll();
     hidePanel();
     showFab();
-  }, 5000);
+  }, UPLOAD_PROGRESS_AUTO_HIDE_MS);
 }
