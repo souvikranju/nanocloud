@@ -276,7 +276,7 @@
                 <div class="info-section">
                     <h3 class="info-section-title">ℹ️ Version Information</h3>
                     <div class="version-info">
-                        <div class="version-number">NanoCloud v2.1</div>
+                        <div class="version-number">NanoCloud v2.0</div>
                         <div class="version-desc">A minimal, fast, self-hosted cloud server</div>
                     </div>
                 </div>
