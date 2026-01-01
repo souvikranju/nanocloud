@@ -2,29 +2,39 @@
 
 A minimal, fast, self-hosted cloud storage server with a modern, responsive interface. Upload, organize, and access your files from anywhere with an elegant web interface.
 
+## 🚀 Overview
+
+This project was born out of a personal need for a lightweight, high-performance file management solution. It serves two primary purposes:
+
+### 📂 Network Dropbox
+A minimal, self-hosted alternative to Google Drive, OneDrive, or Dropbox.
+* **Localized Speed:** Utilize the full bandwidth of your LAN for uploads and downloads, completely bypassing your ISP.
+* **Universal Access:** Files uploaded from one device are immediately available to stream or download from any other device on your network.
+* **No External Dependencies:** Your data stays within your local environment, ensuring privacy and high-speed performance.
+
+### 📸 Seamless File Sharing
+Designed to solve the "How do I send you these photos?" problem.
+* **Guest-Friendly:** A dead-simple interface that allows non-technical guests to share or receive files without needing accounts or complex setups.
+* **Zero Friction:** Perfect for quick transfers of photos and videos during gatherings or events.
+
+## ⚠️ Security & Caution
+
+> [!IMPORTANT]
+> **This application is designed for trusted private networks only.**
+
+* **Trust Model:** This tool operates on the assumption that all users on your local network are trusted. **No native authentication or user access control is implemented.**
+* **Deployment:** **Do not deploy this on a publicly accessible server/internet.** Anyone with the URL will have full access to your files.
+* **Hardening:** If you require security, you can implement authentication (such as Basic Auth or Authelia) via your web server (Nginx, Apache, Caddy, etc.) acting as a reverse proxy.
+
 ## 📸 Screenshots
 
 ### Desktop Interface
 ![Desktop View - List Mode](assets/image/desktop-list-view.png)
 *List view with file information*
 
-![Desktop View - Grid Mode](assets/image/desktop-grid-view.png)
-*Grid view with file thumbnails and multi-select capabilities*
-
-![Desktop View - Upload Progress](assets/image/desktop-upload-progress.png)
-*Real-time upload progress with concurrent file uploads*
-
 ### Mobile Interface
 ![Mobile View - File Browser](screenshots/mobile-file-browser.png)
 *Touch-optimized file browser with responsive design*
-
-![Mobile View - Selection Mode](screenshots/mobile-selection-mode.png)
-*Multi-select with press-and-hold gesture support*
-
-![Mobile View - Actions Menu](screenshots/mobile-actions-menu.png)
-*Mobile-friendly action menu for file operations*
-
-> **Note:** Add your screenshots to the `screenshots/` directory with the filenames shown above.
 
 ## 🚀 Features
 
@@ -41,14 +51,13 @@ A minimal, fast, self-hosted cloud storage server with a modern, responsive inte
 - **📦 Drag & Drop**: Upload files by dragging them anywhere on the page
 
 ## 📋 Requirements
+No frameworks, heavy tools - just **Pure HTML/JS/CSS**
 
 - **PHP 7.4+** with extensions:
   - `fileinfo` (for MIME type detection)
   - `json` (for API responses)
 - **Web Server**: Apache, Nginx, or any PHP-compatible server
 - **Storage**: Sufficient disk space for your files
-
-No frameworks, heavy tools - just pure html, JS and CSS.
 
 ## 🛠️ Installation
 
