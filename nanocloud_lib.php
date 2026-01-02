@@ -9,6 +9,7 @@ function send_json(array $data): void
 {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data);
+    exit;
 }
 
 /** Sanitize a filename (single file name, not a path). */

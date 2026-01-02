@@ -33,7 +33,8 @@ Designed to solve the "How do I send you these photos?" problem.
 *List view with file information*
 
 ### Mobile Interface
-![Mobile View - File Browser](screenshots/mobile-file-browser.png)
+![Mobile View - File Browser](assets/image/mobile-file-browser.png)
+
 *Touch-optimized file browser with responsive design*
 
 ## 🚀 Features
@@ -95,11 +96,21 @@ No frameworks, heavy tools - just **Pure HTML/JS/CSS**
 ```
 nanocloud/
 ├── config.php                # Configuration and constants
+├── config.defaults.php       # Default configuration values
+├── config.local.php          # Local overrides (not tracked)
+├── config.local.php.example  # Example local configuration
 ├── index.php                 # Main HTML interface
 ├── nanocloud_api.php         # REST API endpoints
 ├── nanocloud_download.php    # File download handler
 ├── nanocloud_lib.php         # Shared utility functions
+├── nanocloud_update_api.php  # Self-update system API
+├── version.json              # Current version information
 ├── README.md                 # This file
+│
+├── .temp/                    # Temporary files (auto-created)
+│   ├── backup/               # Backup archives for rollback
+│   ├── update_download/      # Downloaded update packages
+│   └── update_staging/       # Staged updates before deployment
 │
 ├── assets/
 │   ├── css/                  # Modular CSS architecture
@@ -115,6 +126,7 @@ nanocloud/
 │       ├── main.js           # Application entry point
 │       ├── nanocloudClient.js # API client
 │       ├── state.js          # State management
+│       ├── updateChecker.js  # Update notification system
 │       ├── uploader.js       # Upload orchestration
 │       ├── utils.js          # Utility functions
 │       │
@@ -128,6 +140,35 @@ nanocloud/
 │           ├── toast.js          # Notifications
 │           └── touchHandlers.js  # Touch interactions
 ```
+
+## 🔄 Self-Update System
+
+NanoCloud includes a built-in self-update mechanism that allows you to update to the latest version directly from the web interface.
+
+### Update Requirements
+
+- **PHP Extensions**: `PharData` for archive handling
+- **Write Permissions**: Web server must have write access to installation directory
+- **rsync**: Required for atomic deployment (usually pre-installed on Linux)
+- **Internet Access**: To fetch updates from GitHub
+
+### Troubleshooting Updates
+
+**Permission errors:**
+```bash
+# Grant write permissions to web server
+sudo chown -R www-data:www-data /path/to/nanocloud
+sudo chmod -R 755 /path/to/nanocloud
+```
+
+**Update stuck:**
+- Stale locks auto-cleanup after 10 minutes
+- Manually remove `.temp/update.lock` if needed
+
+**Rollback fails:**
+- Ensure backup exists in `.temp/backup/`
+- Check write permissions
+- Manually extract backup if needed
 
 ## 🎯 Architecture
 
