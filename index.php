@@ -204,10 +204,13 @@
     <div id="infoModal" class="modal hidden" aria-hidden="true">
         <div class="modal-content info-modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">ℹ User Guide</h2>
+                <h2 class="modal-title">ℹ Info and Guide</h2>
                 <button class="btn btn-secondary" id="infoModalClose">Close</button>
             </div>
             <div class="modal-body info-modal-body">
+                <!-- Update Section (will be populated by updateChecker.js) -->
+                <div id="updateSectionContainer"></div>
+
                 <!-- Keyboard Shortcuts Section -->
                 <div class="info-section">
                     <h3 class="info-section-title">⌨️ Keyboard Shortcuts</h3>
@@ -265,20 +268,11 @@
                 <!-- GitHub Project Section -->
                 <div class="info-section">
                     <h3 class="info-section-title">🔗 GitHub Project</h3>
-                    <a href="https://github.com/yourusername/nanocloud" target="_blank" rel="noopener noreferrer" class="github-link">
+                    <a href="https://github.com/souvikranju/nanocloud" target="_blank" rel="noopener noreferrer" class="github-link">
                         <span class="github-icon">⚡</span>
                         <span>View on GitHub</span>
                         <span class="external-icon">→</span>
                     </a>
-                </div>
-
-                <!-- Version Information Section -->
-                <div class="info-section">
-                    <h3 class="info-section-title">ℹ️ Version Information</h3>
-                    <div class="version-info">
-                        <div class="version-number">NanoCloud v2.0</div>
-                        <div class="version-desc">A minimal, fast, self-hosted cloud server</div>
-                    </div>
                 </div>
             </div>
         </div>

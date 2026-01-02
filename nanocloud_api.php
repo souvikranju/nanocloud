@@ -35,7 +35,6 @@ if (!is_dir($uploadDir)) {
             'success' => false,
             'message' => 'Unable to create storage directory.',
         ]);
-        exit;
     }
 }
 $uploadDirReal = realpath($uploadDir);
@@ -66,7 +65,6 @@ function handle_list(string $uploadDir, string $uploadDirReal): void
             'breadcrumbs' => breadcrumbs_for($rel),
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $dirAbs = $resolved['abs'];
@@ -81,7 +79,6 @@ function handle_list(string $uploadDir, string $uploadDirReal): void
             'breadcrumbs' => breadcrumbs_for($resolved['rel']),
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $dirs = [];
@@ -199,7 +196,6 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
             'results' => [],
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $rel = normalize_rel_path($_POST['path'] ?? '');
@@ -211,7 +207,6 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
             'results' => [],
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $targetDir = $resolved['abs'];
 
@@ -368,7 +363,6 @@ function handle_delete(string $uploadDir, string $uploadDirReal): void
             'message' => 'Target path not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $dirAbs = $resolved['abs'];
 
@@ -379,7 +373,6 @@ function handle_delete(string $uploadDir, string $uploadDirReal): void
             'message' => 'Missing filename.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $sanitized = sanitize_segment($filename);
@@ -389,7 +382,6 @@ function handle_delete(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid filename.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $path = $dirAbs . DIRECTORY_SEPARATOR . $sanitized;
@@ -400,7 +392,6 @@ function handle_delete(string $uploadDir, string $uploadDirReal): void
             'message' => 'File not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (!@unlink($path)) {
@@ -409,7 +400,6 @@ function handle_delete(string $uploadDir, string $uploadDirReal): void
             'message' => 'Failed to delete file.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     send_json([
@@ -438,7 +428,6 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Target path not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $dirAbs = $resolved['abs'];
 
@@ -450,7 +439,6 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid directory name.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $newDir = $dirAbs . DIRECTORY_SEPARATOR . $segment;
@@ -460,7 +448,6 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Directory already exists.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (!@mkdir($newDir, DIR_PERMISSIONS, false)) {
@@ -469,7 +456,6 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Failed to create directory.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Apply ownership if configured
@@ -501,7 +487,6 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Target path not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $dirAbs = $resolved['abs'];
 
@@ -513,7 +498,6 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid directory name.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $target = $dirAbs . DIRECTORY_SEPARATOR . $segment;
@@ -524,7 +508,6 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Directory not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Ensure within root
@@ -534,7 +517,6 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid directory path.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Prevent deleting root itself by mistake
@@ -544,7 +526,6 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Cannot delete root directory.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (!rrmdir($targetReal)) {
@@ -553,7 +534,6 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Failed to delete directory.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     send_json([
@@ -582,7 +562,6 @@ function handle_rename_file(string $uploadDir, string $uploadDirReal): void
             'message' => 'Target path not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $dirAbs = $resolved['abs'];
 
@@ -595,7 +574,6 @@ function handle_rename_file(string $uploadDir, string $uploadDirReal): void
             'message' => 'Missing filename or new name.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $sanitizedOld = sanitize_segment($filename);
@@ -607,7 +585,6 @@ function handle_rename_file(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid filename or new name.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $oldPath = $dirAbs . DIRECTORY_SEPARATOR . $sanitizedOld;
@@ -619,7 +596,6 @@ function handle_rename_file(string $uploadDir, string $uploadDirReal): void
             'message' => 'File not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (file_exists($newPath)) {
@@ -628,7 +604,6 @@ function handle_rename_file(string $uploadDir, string $uploadDirReal): void
             'message' => 'A file with the new name already exists.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (!@rename($oldPath, $newPath)) {
@@ -637,7 +612,6 @@ function handle_rename_file(string $uploadDir, string $uploadDirReal): void
             'message' => 'Failed to rename file.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     send_json([
@@ -667,7 +641,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Target path not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $dirAbs = $resolved['abs'];
 
@@ -680,7 +653,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Missing name or new name.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $sanitizedOld = sanitize_segment($name);
@@ -692,7 +664,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid name or new name.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $oldPath = $dirAbs . DIRECTORY_SEPARATOR . $sanitizedOld;
@@ -705,7 +676,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Directory not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Ensure within root
@@ -715,7 +685,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid directory path.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Prevent renaming root itself by mistake
@@ -725,7 +694,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Cannot rename root directory.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (file_exists($newPath)) {
@@ -734,7 +702,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'A directory with the new name already exists.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (!@rename($oldPath, $newPath)) {
@@ -743,7 +710,6 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
             'message' => 'Failed to rename directory.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     send_json([
@@ -773,7 +739,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Source path not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $sourceDirAbs = $resolved['abs'];
 
@@ -788,7 +753,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Missing item type, item name, or target path.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (!in_array($itemType, ['file', 'dir'])) {
@@ -797,7 +761,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid item type. Must be "file" or "dir".',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $sanitizedItemName = $itemType === 'file' ? sanitize_segment($itemName) : sanitize_segment($itemName);
@@ -807,7 +770,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Invalid item name.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     $targetResolved = resolve_dir($uploadDirReal, $uploadDir, normalize_rel_path($targetPath));
@@ -817,7 +779,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Target path not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     $targetDirAbs = $targetResolved['abs'];
 
@@ -831,7 +792,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'File not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
     
     if ($itemType === 'dir' && !is_dir($sourcePath)) {
@@ -840,7 +800,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Directory not found.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Prevent moving root directory
@@ -851,7 +810,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Cannot move root directory.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Check if target already exists
@@ -861,7 +819,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'An item with the same name already exists in the target directory.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     if (!@rename($sourcePath, $targetPathFull)) {
@@ -870,7 +827,6 @@ function handle_move(string $uploadDir, string $uploadDirReal): void
             'message' => 'Failed to move item.',
             'storage' => storage_info($uploadDir),
         ]);
-        return;
     }
 
     // Apply permissions to moved files (directories maintain their permissions)

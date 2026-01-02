@@ -17,6 +17,7 @@ import { initToast, showSuccess, showError, showInfo } from './ui/toast.js';
 import { requestRefresh as stateRequestRefresh, setCurrentPathWithRefresh } from './state.js';
 import { info as apiInfo, createDir as apiCreateDir } from './nanocloudClient.js';
 import { uploadFiles } from './uploader.js';
+import { updateChecker } from './updateChecker.js';
 
 
 // =====================================
@@ -174,9 +175,13 @@ function hideInfoModal() {
 }
 
 function setupInfoModalHandlers() {
-  // Info button -> open info modal
+  // Info button -> open info modal and initialize update checker
   if (DOM.infoBtn) {
-    DOM.infoBtn.addEventListener('click', showInfoModal);
+    DOM.infoBtn.addEventListener('click', async () => {
+      showInfoModal();
+      // Initialize update checker only when modal is opened
+      await initializeUpdateChecker();
+    });
   }
 
   // Info modal close button
@@ -323,6 +328,42 @@ async function initializeApp() {
   } catch (error) {
     console.error('Failed to initialize app:', error);
     showError('Failed to initialize application');
+  }
+}
+
+// Track if update checker has been initialized
+let updateCheckerInitialized = false;
+
+async function initializeUpdateChecker() {
+  // Only initialize once
+  if (updateCheckerInitialized) {
+    return;
+  }
+  
+  updateCheckerInitialized = true;
+  
+  try {
+    // Initialize update checker
+    await updateChecker.init();
+    
+    // Update version display in info modal
+    const versionDisplay = document.getElementById('versionDisplay');
+    if (versionDisplay && updateChecker.currentVersion) {
+      versionDisplay.textContent = updateChecker.currentVersion;
+    }
+    
+    // Render update UI in info modal
+    const updateContainer = document.getElementById('updateSectionContainer');
+    if (updateContainer) {
+      updateChecker.renderUpdateUI(updateContainer);
+    }
+  } catch (error) {
+    console.warn('Failed to initialize update checker:', error);
+    // Don't fail the app if update checker fails
+    const versionDisplay = document.getElementById('versionDisplay');
+    if (versionDisplay) {
+      versionDisplay.textContent = 'v2.0';
+    }
   }
 }
 
