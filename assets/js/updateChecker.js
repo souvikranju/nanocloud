@@ -122,7 +122,6 @@ export class UpdateChecker {
     renderUpdateUI(container) {
         // Create update section HTML
         const updateSection = document.createElement('div');
-        updateSection.className = 'info-section update-section';
         updateSection.innerHTML = `
             <h3 class="info-section-title">🔄 Updates</h3>
             <div class="update-info">

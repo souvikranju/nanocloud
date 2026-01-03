@@ -1012,11 +1012,6 @@ body.drag-active::after {
 }
 
 /* ===== UPDATE CHECKER UI ===== */
-.update-section {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
 
 .update-info {
   background: var(--gray-50);

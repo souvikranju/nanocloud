@@ -209,7 +209,7 @@
             </div>
             <div class="modal-body info-modal-body">
                 <!-- Update Section (will be populated by updateChecker.js) -->
-                <div id="updateSectionContainer"></div>
+                <div id="updateSectionContainer" class="info-section"></div>
 
                 <!-- Keyboard Shortcuts Section -->
                 <div class="info-section">
