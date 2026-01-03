@@ -3,11 +3,10 @@
 // Focused on rendering responsibilities only
 
 import { 
-  DOWNLOAD_BASE, 
-  VIEW_MODE_GRID, 
-  VIEW_MODE_LIST, 
+  DOWNLOAD_BASE,
+  VIEW_MODE_GRID,
+  VIEW_MODE_LIST,
   VIEW_MODE_STORAGE_KEY,
-  SELECTED_CLASS,
   ACTIVE_CLASS
 } from '../constants.js';
 import { joinPath } from '../utils.js';
@@ -15,17 +14,17 @@ import { list as apiList } from '../nanocloudClient.js';
 import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh } from '../state.js';
 import { showError } from './toast.js';
 import { 
-  createFileIconElement, 
-  createListIconElement, 
-  isViewableInBrowser 
+  createFileIconElement,
+  createListIconElement,
+  isViewableInBrowser
 } from './fileIcons.js';
 import { formatBytes, formatDate } from '../utils.js';
 
-// Import new modules
 import { 
-  initSelection, 
-  clearSelection, 
-  toggleItemSelection, 
+  initSelection,
+  getSelectedItems,
+  clearSelection,
+  toggleItemSelection,
   isSelected,
   selectAll,
   deselectAll
@@ -390,14 +389,25 @@ function attachItemClickHandler(element, entry) {
       return;
     }
     
-    // If item is already selected, deselect it instead of navigating/downloading
-    if (isSelected(entry.name)) {
+    const selectedItems = getSelectedItems();
+    
+    // If ANY items are selected (selection mode is active)
+    if (selectedItems.size > 0) {
       e.preventDefault();
-      toggleItemSelection(entry.name, false);
-      element.classList.remove('selected');
+      
+      // If this item is already selected, deselect it
+      if (isSelected(entry.name)) {
+        toggleItemSelection(entry.name, false);
+        element.classList.remove('selected');
+      } else {
+        // Add this item to selection
+        toggleItemSelection(entry.name, true);
+        element.classList.add('selected');
+      }
       return;
     }
     
+    // No items selected - normal click behavior (open/download)
     handleItemClick(entry);
   });
 }
