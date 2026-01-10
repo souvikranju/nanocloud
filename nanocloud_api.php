@@ -164,6 +164,11 @@ try {
                 'success' => true,
                 'maxFileBytes' => defined('MAX_FILE_BYTES') ? MAX_FILE_BYTES : null,
                 'maxSessionBytes' => defined('MAX_SESSION_BYTES') ? MAX_SESSION_BYTES : null,
+                'readOnly' => defined('READ_ONLY') ? READ_ONLY : false,
+                'uploadEnabled' => defined('UPLOAD_ENABLED') ? UPLOAD_ENABLED : true,
+                'deleteEnabled' => defined('DELETE_ENABLED') ? DELETE_ENABLED : true,
+                'renameEnabled' => defined('RENAME_ENABLED') ? RENAME_ENABLED : true,
+                'moveEnabled' => defined('MOVE_ENABLED') ? MOVE_ENABLED : true,
             ]);
             break;
         default:
@@ -187,6 +192,17 @@ try {
  */
 function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir): void
 {
+    // Check if upload operation is allowed
+    $check = check_operation_allowed('upload');
+    if (!$check['allowed']) {
+        send_json([
+            'success' => false,
+            'message' => $check['message'],
+            'results' => [],
+            'storage' => storage_info($uploadDir),
+        ]);
+    }
+
     ignore_user_abort(true); // allow script to continue to handle cleanup when client disconnects
 
     if (!isset($_FILES['files'])) {
@@ -410,6 +426,16 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
  */
 function handle_delete(string $uploadDir, string $uploadDirReal): void
 {
+    // Check if delete operation is allowed
+    $check = check_operation_allowed('delete');
+    if (!$check['allowed']) {
+        send_json([
+            'success' => false,
+            'message' => $check['message'],
+            'storage' => storage_info($uploadDir),
+        ]);
+    }
+
     $rel = normalize_rel_path($_POST['path'] ?? '');
     $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
     if ($resolved === null) {
@@ -475,6 +501,16 @@ function handle_delete(string $uploadDir, string $uploadDirReal): void
  */
 function handle_create_dir(string $uploadDir, string $uploadDirReal): void
 {
+    // Check if upload operation is allowed (creating directories is an upload operation)
+    $check = check_operation_allowed('upload');
+    if (!$check['allowed']) {
+        send_json([
+            'success' => false,
+            'message' => $check['message'],
+            'storage' => storage_info($uploadDir),
+        ]);
+    }
+
     $rel = normalize_rel_path($_POST['path'] ?? '');
     $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
     if ($resolved === null) {
@@ -534,6 +570,16 @@ function handle_create_dir(string $uploadDir, string $uploadDirReal): void
  */
 function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
 {
+    // Check if delete operation is allowed
+    $check = check_operation_allowed('delete');
+    if (!$check['allowed']) {
+        send_json([
+            'success' => false,
+            'message' => $check['message'],
+            'storage' => storage_info($uploadDir),
+        ]);
+    }
+
     $rel = normalize_rel_path($_POST['path'] ?? '');
     $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
     if ($resolved === null) {
@@ -609,6 +655,16 @@ function handle_delete_dir(string $uploadDir, string $uploadDirReal): void
  */
 function handle_rename_file(string $uploadDir, string $uploadDirReal): void
 {
+    // Check if rename operation is allowed
+    $check = check_operation_allowed('rename');
+    if (!$check['allowed']) {
+        send_json([
+            'success' => false,
+            'message' => $check['message'],
+            'storage' => storage_info($uploadDir),
+        ]);
+    }
+
     $rel = normalize_rel_path($_POST['path'] ?? '');
     $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
     if ($resolved === null) {
@@ -688,6 +744,16 @@ function handle_rename_file(string $uploadDir, string $uploadDirReal): void
  */
 function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
 {
+    // Check if rename operation is allowed
+    $check = check_operation_allowed('rename');
+    if (!$check['allowed']) {
+        send_json([
+            'success' => false,
+            'message' => $check['message'],
+            'storage' => storage_info($uploadDir),
+        ]);
+    }
+
     $rel = normalize_rel_path($_POST['path'] ?? '');
     $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
     if ($resolved === null) {
@@ -786,6 +852,16 @@ function handle_rename_dir(string $uploadDir, string $uploadDirReal): void
  */
 function handle_move(string $uploadDir, string $uploadDirReal): void
 {
+    // Check if move operation is allowed
+    $check = check_operation_allowed('move');
+    if (!$check['allowed']) {
+        send_json([
+            'success' => false,
+            'message' => $check['message'],
+            'storage' => storage_info($uploadDir),
+        ]);
+    }
+
     $rel = normalize_rel_path($_POST['path'] ?? '');
     $resolved = resolve_dir($uploadDirReal, $uploadDir, $rel);
     if ($resolved === null) {

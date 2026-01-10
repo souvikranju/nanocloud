@@ -270,7 +270,38 @@ $FILE_OWNER = 'username';
 $FILE_GROUP = 'groupname';
 ```
 
-### How It Works
+#### Operation Control
+
+Control which operations are allowed system-wide. These settings provide granular control over write operations and can be used to implement read-only modes or restrict specific functionality.
+
+```php
+// Master read-only switch (highest priority)
+// When true, ALL write operations are blocked regardless of other settings
+$READ_ONLY = false;
+
+// Individual operation controls (only evaluated when READ_ONLY = false)
+$UPLOAD_ENABLED = true;   // Allow file/folder uploads and folder creation
+$DELETE_ENABLED = true;   // Allow file/folder deletion
+$RENAME_ENABLED = true;   // Allow file/folder renaming
+$MOVE_ENABLED = true;     // Allow file/folder moving
+```
+
+**Configuration Priority:**
+- `READ_ONLY` has the highest priority and overrides all other settings
+- When `READ_ONLY = true`, all write operations are blocked regardless of other flags
+
+**UI Behavior:**
+- Disabled controls are visually dimmed and show explanatory tooltips
+- When `READ_ONLY=true`: Tooltip shows "System is read-only"
+- When specific feature disabled: Tooltip shows "[Feature] disabled by administrator"
+
+**Use Cases:**
+- **Maintenance Mode**: Set `READ_ONLY = true` to prevent changes during backups or maintenance
+- **Archive Mode**: Disable uploads/deletes to preserve historical data while allowing browsing
+- **Restricted Access**: Disable specific operations based on deployment requirements
+- **Temporary Restrictions**: Quickly disable operations without complex permission systems
+
+### How Configuration Works
 
 1. **Load Defaults**: `config.defaults.php` is loaded first (default configuration)
 2. **Apply Overrides**: If `config.local.php` exists, it overrides the defaults

@@ -9,7 +9,8 @@ import {
   MODAL_ARIA_HIDDEN,
   KEYBOARD_SHORTCUTS 
 } from './constants.js';
-import { getCurrentPath, setMaxFileBytes, hasExistingName } from './state.js';
+import { getCurrentPath, hasExistingName, setServerConfig, getServerConfig, isOperationAllowed } from './state.js';
+import { updateSelectionButtonStates } from './ui/list.js';
 import { parentPath, sanitizeSegment, formatBytes, extractFilesFromDataTransfer, extractFilesFromFileList } from './utils.js';
 import { initProgress, showFab } from './ui/progress.js';
 import { initList, fetchAndRenderList } from './ui/list.js';
@@ -102,6 +103,13 @@ function initializeModules() {
 // EVENT HANDLERS - MODAL MANAGEMENT
 // =====================================
 function showModal() {
+  // Check if uploads are allowed
+  const check = isOperationAllowed('upload');
+  if (!check.allowed) {
+    showError(check.reason);
+    return;
+  }
+  
   DOM.uploadModal.classList.remove(MODAL_HIDDEN_CLASS);
   DOM.uploadModal.setAttribute(MODAL_ARIA_HIDDEN, 'false');
 }
@@ -295,6 +303,13 @@ function handleNavigationUp() {
 }
 
 async function handleCreateFolder() {
+  // Check if uploads are allowed (creating folders is an upload operation)
+  const check = isOperationAllowed('upload');
+  if (!check.allowed) {
+    showError(check.reason);
+    return;
+  }
+
   const name = prompt('New folder name:');
   if (name == null) return;
 
@@ -394,7 +409,20 @@ async function fetchServerInfo() {
   try {
     const data = await apiInfo();
     if (data && data.success) {
-      setMaxFileBytes(data.maxFileBytes ?? null);
+      // Store all server configuration in one place
+      setServerConfig({
+        maxFileBytes: data.maxFileBytes ?? null,
+        maxSessionBytes: data.maxSessionBytes ?? null,
+        readOnly: data.readOnly ?? false,
+        uploadEnabled: data.uploadEnabled ?? true,
+        deleteEnabled: data.deleteEnabled ?? true,
+        renameEnabled: data.renameEnabled ?? true,
+        moveEnabled: data.moveEnabled ?? true,
+      });
+      
+      // Update UI based on configuration
+      updateUIForConfiguration();
+      
       if (DOM.serverLimitText) {
         const maxSize = (data.maxFileBytes != null) ? formatBytes(data.maxFileBytes) : 'unknown';
         DOM.serverLimitText.textContent = `Server limit: ${maxSize}`;
@@ -404,6 +432,59 @@ async function fetchServerInfo() {
     // Ignore errors to keep client behavior safe
     console.warn('Failed to fetch server info:', error);
   }
+}
+
+/**
+ * Update UI controls based on server configuration.
+ */
+function updateUIForConfiguration() {
+  const config = getServerConfig();
+  
+  // Determine the tooltip message for disabled controls
+  const getTooltip = (operation) => {
+    if (config.readOnly) {
+      return 'System is read-only';
+    }
+    const check = isOperationAllowed(operation);
+    return check.allowed ? '' : check.reason;
+  };
+  
+  // Upload controls (FAB, new folder button, modal, drag-drop)
+  const uploadAllowed = isOperationAllowed('upload').allowed;
+  
+  if (DOM.fabUpload) {
+    DOM.fabUpload.disabled = !uploadAllowed;
+    DOM.fabUpload.title = uploadAllowed ? 'Upload files' : getTooltip('upload');
+    if (!uploadAllowed) {
+      DOM.fabUpload.style.opacity = '0.5';
+      DOM.fabUpload.style.cursor = 'not-allowed';
+    } else {
+      DOM.fabUpload.style.opacity = '';
+      DOM.fabUpload.style.cursor = '';
+    }
+  }
+  
+  if (DOM.newFolderBtn) {
+    DOM.newFolderBtn.disabled = !uploadAllowed;
+    DOM.newFolderBtn.title = uploadAllowed ? 'Create new folder' : getTooltip('upload');
+    if (!uploadAllowed) {
+      DOM.newFolderBtn.style.opacity = '0.5';
+      DOM.newFolderBtn.style.cursor = 'not-allowed';
+    } else {
+      DOM.newFolderBtn.style.opacity = '';
+      DOM.newFolderBtn.style.cursor = '';
+    }
+  }
+  
+  // Disable drag-drop if uploads not allowed
+  if (!uploadAllowed) {
+    document.body.classList.add('uploads-disabled');
+  } else {
+    document.body.classList.remove('uploads-disabled');
+  }
+  
+  // Update selection bar button states
+  updateSelectionButtonStates();
 }
 
 // =====================================
@@ -437,6 +518,13 @@ function setupGlobalEventHandlers() {
     e.preventDefault();
     dragCounter = 0;
     document.body.classList.remove('drag-active');
+    
+    // Check if uploads are allowed before processing
+    const check = isOperationAllowed('upload');
+    if (!check.allowed) {
+      showError(check.reason);
+      return;
+    }
     
     const dataTransfer = e.dataTransfer;
     if (!dataTransfer) return;

@@ -41,6 +41,13 @@ define('FILE_PERMISSIONS', $FILE_PERMISSIONS);
 define('FILE_OWNER', $FILE_OWNER);
 define('FILE_GROUP', $FILE_GROUP);
 
+// Operation control flags
+define('READ_ONLY', $READ_ONLY);
+define('UPLOAD_ENABLED', $UPLOAD_ENABLED);
+define('DELETE_ENABLED', $DELETE_ENABLED);
+define('RENAME_ENABLED', $RENAME_ENABLED);
+define('MOVE_ENABLED', $MOVE_ENABLED);
+
 // Calculate MAX_FILE_BYTES as minimum of PHP settings and user-defined limit
 $upload_max = parse_size_to_bytes(ini_get('upload_max_filesize'));
 $post_max = parse_size_to_bytes(ini_get('post_max_size'));

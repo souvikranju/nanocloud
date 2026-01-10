@@ -9,7 +9,7 @@ import {
   renameDir as apiRenameDir,
   moveItem as apiMoveItem
 } from '../nanocloudClient.js';
-import { getCurrentPath, requestRefresh } from '../state.js';
+import { getCurrentPath, requestRefresh, isOperationAllowed } from '../state.js';
 import { showSuccess, showError, showWarning } from './toast.js';
 import { getSelectedItems, deselectAll } from './selection.js';
 
