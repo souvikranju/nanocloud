@@ -218,6 +218,9 @@
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .file-card:hover {
@@ -239,6 +242,9 @@
   border-bottom: 1px solid var(--gray-100);
   transition: all var(--transition-fast);
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .file-list-item:hover {
