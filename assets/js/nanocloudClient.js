@@ -142,17 +142,19 @@ export function moveItem(sourcePath, itemType, itemName, targetPath) {
  * Upload a single file using XHR to get progress events.
  * Resolves with the server's single-file result ({success, filename, message}) or rejects on error.
  * @param {File} file
- * @param {string} path
+ * @param {string} path - Current directory path
+ * @param {string} relativePath - Relative path for the file (e.g., "folder/subfolder/file.txt")
  * @param {(pct:number)=>void} [onProgress]
  * @returns {Promise<{success:boolean, filename:string, message?:string}>}
  */
-export function uploadSingle(file, path, onProgress) {
+export function uploadSingle(file, path, relativePath, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
     formData.append('action', 'upload');
     formData.append('path', path);
     formData.append('files[]', file, file.name);
+    formData.append('relativePaths[]', relativePath);
 
     xhr.open('POST', API_URL);
 

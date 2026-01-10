@@ -215,6 +215,12 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
     $tmpNames = is_array($files['tmp_name']) ? $files['tmp_name'] : [$files['tmp_name']];
     $sizes    = is_array($files['size'])     ? $files['size']     : [$files['size']];
     $errors   = is_array($files['error'])    ? $files['error']    : [$files['error']];
+    
+    // Get relative paths if provided (for folder uploads)
+    $relativePaths = [];
+    if (isset($_POST['relativePaths']) && is_array($_POST['relativePaths'])) {
+        $relativePaths = $_POST['relativePaths'];
+    }
 
     $results = [];
     $sessionTotal =& $_SESSION['uploaded_total_bytes'];
@@ -251,14 +257,62 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
             continue;
         }
 
-        $sanitized = sanitize_filename($originalName);
-        if ($sanitized === '') {
-            $result['message'] = 'Invalid filename.';
+        // Get relative path for this file (for folder uploads)
+        $relativePath = $relativePaths[$idx] ?? '';
+        
+        // Sanitize the relative path
+        $sanitizedPath = '';
+        if ($relativePath !== '') {
+            // Split path into segments and sanitize each
+            $segments = explode('/', $relativePath);
+            $sanitizedSegments = [];
+            foreach ($segments as $i => $segment) {
+                if ($segment === '') continue;
+                // Last segment is filename, others are folder names
+                $isLastSegment = ($i === count($segments) - 1);
+                $sanitized = $isLastSegment ? sanitize_filename($segment) : sanitize_segment($segment);
+                if ($sanitized !== '') {
+                    $sanitizedSegments[] = $sanitized;
+                }
+            }
+            $sanitizedPath = implode(DIRECTORY_SEPARATOR, $sanitizedSegments);
+        } else {
+            // No relative path, just sanitize the filename
+            $sanitizedPath = sanitize_filename($originalName);
+        }
+        
+        if ($sanitizedPath === '') {
+            $result['message'] = 'Invalid filename or path.';
             $results[] = $result;
             continue;
         }
 
-        $finalPath = $targetDir . DIRECTORY_SEPARATOR . $sanitized;
+        $finalPath = $targetDir . DIRECTORY_SEPARATOR . $sanitizedPath;
+        
+        // Create nested directories if needed
+        $finalDir = dirname($finalPath);
+        if ($finalDir !== $targetDir && !is_dir($finalDir)) {
+            // Ensure the directory is within the upload root
+            $finalDirReal = @realpath($finalDir);
+            if ($finalDirReal === false) {
+                // Directory doesn't exist yet, create it
+                if (!@mkdir($finalDir, DIR_PERMISSIONS, true)) {
+                    $result['message'] = 'Failed to create directory structure.';
+                    $results[] = $result;
+                    continue;
+                }
+                // Apply permissions to created directories
+                apply_permissions($finalDir, true);
+                $finalDirReal = realpath($finalDir);
+            }
+            
+            // Verify the created directory is within root
+            if ($finalDirReal === false || !is_within_root($uploadDirReal, $finalDirReal)) {
+                $result['message'] = 'Invalid directory path.';
+                $results[] = $result;
+                continue;
+            }
+        }
 
         // No duplicates
         if (file_exists($finalPath)) {
@@ -284,7 +338,8 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
         }
 
         // Transactional move: tmp .part then rename
-        $tmpPart = $tmpDir . DIRECTORY_SEPARATOR . (uniqid('up_', true) . '_' . $sanitized . '.part');
+        $tmpPartName = basename($sanitizedPath);
+        $tmpPart = $tmpDir . DIRECTORY_SEPARATOR . (uniqid('up_', true) . '_' . $tmpPartName . '.part');
         $GLOBALS['inflightTmpPaths'][] = $tmpPart;
 
         // Move into tmp area
@@ -329,7 +384,7 @@ function handle_upload(string $uploadDir, string $uploadDirReal, string $tmpDir)
         $sessionTotal += $size;
 
         $result['success']  = true;
-        $result['filename'] = $sanitized;
+        $result['filename'] = $sanitizedPath;
         $result['message']  = 'File uploaded successfully.';
         $results[] = $result;
     }

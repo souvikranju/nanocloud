@@ -100,3 +100,99 @@ export function formatDate(timestamp) {
     });
   }
 }
+
+/**
+ * Recursively traverse a directory entry and extract all files with their relative paths.
+ * @param {FileSystemEntry} entry - Directory or file entry from DataTransferItem
+ * @param {string} basePath - Base path to prepend to file paths
+ * @returns {Promise<Array<{file: File, relativePath: string}>>}
+ */
+async function traverseDirectoryEntry(entry, basePath = '') {
+  const results = [];
+  
+  if (entry.isFile) {
+    // Get the file from the entry
+    const file = await new Promise((resolve, reject) => {
+      entry.file(resolve, reject);
+    });
+    
+    // Store file with its relative path - preserve exact names including spaces
+    const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+    results.push({ file, relativePath });
+  } else if (entry.isDirectory) {
+    // Read directory contents
+    const reader = entry.createReader();
+    const entries = await new Promise((resolve, reject) => {
+      const allEntries = [];
+      
+      function readEntries() {
+        reader.readEntries((entries) => {
+          if (entries.length === 0) {
+            resolve(allEntries);
+          } else {
+            allEntries.push(...entries);
+            readEntries(); // Continue reading if there are more entries
+          }
+        }, reject);
+      }
+      
+      readEntries();
+    });
+    
+    // Recursively process each entry - preserve exact folder names including spaces
+    const newBasePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+    for (const subEntry of entries) {
+      const subResults = await traverseDirectoryEntry(subEntry, newBasePath);
+      results.push(...subResults);
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Extract files from DataTransferItemList, handling both files and folders.
+ * @param {DataTransferItemList} items - Items from drag and drop event
+ * @returns {Promise<Array<{file: File, relativePath: string}>>}
+ */
+export async function extractFilesFromDataTransfer(items) {
+  const results = [];
+  const entries = [];
+  
+  // Collect all entries
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.kind === 'file') {
+      const entry = item.webkitGetAsEntry?.() || item.getAsEntry?.();
+      if (entry) {
+        entries.push(entry);
+      }
+    }
+  }
+  
+  // Process each entry
+  for (const entry of entries) {
+    const files = await traverseDirectoryEntry(entry);
+    results.push(...files);
+  }
+  
+  return results;
+}
+
+/**
+ * Extract files from FileList (from input element), preserving folder structure if available.
+ * @param {FileList} fileList - Files from input element
+ * @returns {Array<{file: File, relativePath: string}>}
+ */
+export function extractFilesFromFileList(fileList) {
+  const results = [];
+  
+  for (let i = 0; i < fileList.length; i++) {
+    const file = fileList[i];
+    // Use webkitRelativePath if available (folder upload), otherwise just the name
+    const relativePath = file.webkitRelativePath || file.name;
+    results.push({ file, relativePath });
+  }
+  
+  return results;
+}

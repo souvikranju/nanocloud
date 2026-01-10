@@ -10,7 +10,7 @@ import {
   KEYBOARD_SHORTCUTS 
 } from './constants.js';
 import { getCurrentPath, setMaxFileBytes, hasExistingName } from './state.js';
-import { parentPath, sanitizeSegment, formatBytes } from './utils.js';
+import { parentPath, sanitizeSegment, formatBytes, extractFilesFromDataTransfer, extractFilesFromFileList } from './utils.js';
 import { initProgress, showFab } from './ui/progress.js';
 import { initList, fetchAndRenderList } from './ui/list.js';
 import { initToast, showSuccess, showError, showInfo } from './ui/toast.js';
@@ -137,7 +137,8 @@ function setupModalEventHandlers() {
       const files = DOM.modalFileInput.files;
       if (files && files.length > 0) {
         hideModal();
-        uploadFiles(files);
+        const fileItems = extractFilesFromFileList(files);
+        uploadFiles(fileItems);
         // Clear the file input so the same file can be selected again
         DOM.modalFileInput.value = '';
       }
@@ -235,12 +236,34 @@ function handleDragLeaveDrop(event) {
   event.currentTarget.classList.remove(DRAG_HOVER_CLASS);
 }
 
-function handleFileDrop(event) {
+async function handleFileDrop(event) {
   const dataTransfer = event.dataTransfer;
-  const files = dataTransfer && dataTransfer.files;
-  if (files && files.length > 0) {
+  if (!dataTransfer) return;
+  
+  // Try to use DataTransferItem API for folder support
+  if (dataTransfer.items && dataTransfer.items.length > 0) {
     hideModal();
-    uploadFiles(files);
+    try {
+      const fileItems = await extractFilesFromDataTransfer(dataTransfer.items);
+      if (fileItems.length > 0) {
+        uploadFiles(fileItems);
+      }
+      // Note: Empty folders are not exposed by browser File API
+      // No notification needed as browser won't even trigger drop for empty folders
+    } catch (err) {
+      console.error('Error extracting files from drop:', err);
+      // Fallback to simple file list
+      const files = dataTransfer.files;
+      if (files && files.length > 0) {
+        const fileItems = extractFilesFromFileList(files);
+        uploadFiles(fileItems);
+      }
+    }
+  } else if (dataTransfer.files && dataTransfer.files.length > 0) {
+    // Fallback for browsers without DataTransferItem support
+    hideModal();
+    const fileItems = extractFilesFromFileList(dataTransfer.files);
+    uploadFiles(fileItems);
   }
 }
 
@@ -410,14 +433,34 @@ function setupGlobalEventHandlers() {
     e.preventDefault();
   });
   
-  document.addEventListener('drop', (e) => {
+  document.addEventListener('drop', async (e) => {
     e.preventDefault();
     dragCounter = 0;
     document.body.classList.remove('drag-active');
     
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      uploadFiles(files);
+    const dataTransfer = e.dataTransfer;
+    if (!dataTransfer) return;
+    
+    // Try to use DataTransferItem API for folder support
+    if (dataTransfer.items && dataTransfer.items.length > 0) {
+      try {
+        const fileItems = await extractFilesFromDataTransfer(dataTransfer.items);
+        if (fileItems.length > 0) {
+          uploadFiles(fileItems);
+        }
+      } catch (err) {
+        console.error('Error extracting files from drop:', err);
+        // Fallback to simple file list
+        const files = dataTransfer.files;
+        if (files && files.length > 0) {
+          const fileItems = extractFilesFromFileList(files);
+          uploadFiles(fileItems);
+        }
+      }
+    } else if (dataTransfer.files && dataTransfer.files.length > 0) {
+      // Fallback for browsers without DataTransferItem support
+      const fileItems = extractFilesFromFileList(dataTransfer.files);
+      uploadFiles(fileItems);
     }
   });
 

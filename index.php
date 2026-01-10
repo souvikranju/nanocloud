@@ -146,13 +146,13 @@
                 <div id="modalMessages" class="messages"></div>
                 
                 <div class="file-input-wrapper">
-                    <input type="file" id="modalFileInput" class="file-input" multiple>
+                    <input type="file" id="modalFileInput" class="file-input" multiple webkitdirectory directory>
                 </div>
                 
                 <div class="drop-area" id="modalDropArea">
                     <div class="drop-area-icon">📁</div>
-                    <div class="drop-area-text">Drag & drop files here</div>
-                    <div class="drop-area-subtext">or click to browse files</div>
+                    <div class="drop-area-text">Drag & drop files or folders here</div>
+                    <div class="drop-area-subtext">or click to browse</div>
                 </div>
             </div>
         </div>

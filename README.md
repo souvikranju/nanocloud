@@ -49,7 +49,7 @@ Designed to solve the "How do I send you these photos?" problem.
 - **🎯 Multi-Select**: Select multiple items for batch operations
 - **⌨️ Keyboard Shortcuts**: Efficient navigation with keyboard commands
 - **🎬 Media Streaming**: Stream videos, audio, and view images directly in browser
-- **📦 Drag & Drop**: Upload files by dragging them anywhere on the page
+- **📦 Drag & Drop**: Upload files and folders by dragging them anywhere on the page
 
 ## 📋 Requirements
 No frameworks, heavy tools - just **Pure HTML/JS/CSS**
@@ -310,9 +310,9 @@ export const REFRESH_DEBOUNCE_MS = 300;
 
 ### File Operations
 
-1. **Upload Files**:
-   - Click the `+` button (FAB)
-   - Drag and drop files anywhere
+1. **Upload Files & Folders**:
+   - Click the `+` button (FAB) to select files or folders
+   - Drag and drop files or folders anywhere
    - Use `Ctrl/Cmd + U` shortcut
 
 2. **Create Folder**:
