@@ -11,7 +11,7 @@ import {
 } from '../constants.js';
 import { joinPath } from '../utils.js';
 import { list as apiList } from '../nanocloudClient.js';
-import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh } from '../state.js';
+import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh, isOperationAllowed } from '../state.js';
 import { showError } from './toast.js';
 import { 
   createFileIconElement,
@@ -124,6 +124,48 @@ function setupSelectionButtons() {
   
   if (moveSelectedBtn) {
     moveSelectedBtn.addEventListener('click', moveSelectedItems);
+  }
+}
+
+/**
+ * Update selection bar button states based on configuration
+ */
+export function updateSelectionButtonStates() {
+  const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+  const renameSelectedBtn = document.getElementById('renameSelectedBtn');
+  const moveSelectedBtn = document.getElementById('moveSelectedBtn');
+  
+  // Check delete permission
+  const deleteCheck = isOperationAllowed('delete');
+  if (deleteSelectedBtn) {
+    deleteSelectedBtn.disabled = !deleteCheck.allowed;
+    deleteSelectedBtn.title = deleteCheck.allowed ? 'Delete selected items' : deleteCheck.reason;
+    if (!deleteCheck.allowed) {
+      deleteSelectedBtn.style.opacity = '0.5';
+      deleteSelectedBtn.style.cursor = 'not-allowed';
+    }
+  }
+  
+  // Check rename permission
+  const renameCheck = isOperationAllowed('rename');
+  if (renameSelectedBtn) {
+    renameSelectedBtn.disabled = !renameCheck.allowed;
+    renameSelectedBtn.title = renameCheck.allowed ? 'Rename selected item' : renameCheck.reason;
+    if (!renameCheck.allowed) {
+      renameSelectedBtn.style.opacity = '0.5';
+      renameSelectedBtn.style.cursor = 'not-allowed';
+    }
+  }
+  
+  // Check move permission
+  const moveCheck = isOperationAllowed('move');
+  if (moveSelectedBtn) {
+    moveSelectedBtn.disabled = !moveCheck.allowed;
+    moveSelectedBtn.title = moveCheck.allowed ? 'Move selected items' : moveCheck.reason;
+    if (!moveCheck.allowed) {
+      moveSelectedBtn.style.opacity = '0.5';
+      moveSelectedBtn.style.cursor = 'not-allowed';
+    }
   }
 }
 
@@ -365,11 +407,22 @@ function createDeleteButton(entry) {
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'btn btn-sm btn-danger';
   deleteBtn.innerHTML = '🗑️';
-  deleteBtn.title = 'Delete';
-  deleteBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    deleteItem(entry);
-  });
+  
+  // Check if delete operation is allowed
+  const check = isOperationAllowed('delete');
+  if (!check.allowed) {
+    deleteBtn.disabled = true;
+    deleteBtn.title = check.reason;
+    deleteBtn.style.opacity = '0.5';
+    deleteBtn.style.cursor = 'not-allowed';
+  } else {
+    deleteBtn.title = 'Delete';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteItem(entry);
+    });
+  }
+  
   return deleteBtn;
 }
 

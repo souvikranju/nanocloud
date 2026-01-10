@@ -10,8 +10,16 @@ export { API_URL, DOWNLOAD_BASE };
 /** Current relative path within the uploads tree. Empty string means root. */
 let currentPath = '';
 
-/** Server-side max file size (bytes). Null when unknown. */
-let maxFileBytes = null;
+/** Server configuration including limits and operation control */
+let serverConfig = {
+  maxFileBytes: null,
+  maxSessionBytes: null,
+  readOnly: false,
+  uploadEnabled: true,
+  deleteEnabled: true,
+  renameEnabled: true,
+  moveEnabled: true,
+};
 
 /** Set of names (files + dirs) present in the current directory for duplicate checks. */
 const nameSet = new Set();
@@ -45,15 +53,7 @@ export function setCurrentPath(path) {
  * @returns {number|null}
  */
 export function getMaxFileBytes() {
-  return maxFileBytes;
-}
-
-/**
- * Set the server-reported max file size. Non-finite values become null.
- * @param {number|null|undefined} n
- */
-export function setMaxFileBytes(n) {
-  maxFileBytes = Number.isFinite(n) ? Number(n) : null;
+  return serverConfig.maxFileBytes;
 }
 
 /**
@@ -162,5 +162,62 @@ export async function requestRefresh(force = false) {
         pendingRefresh = false;
       }
     }, REFRESH_DEBOUNCE_MS);
+  }
+}
+
+// =====================================
+// SERVER CONFIGURATION MANAGEMENT
+// =====================================
+
+/**
+ * Set server configuration from API response.
+ * @param {Object} config
+ */
+export function setServerConfig(config) {
+  serverConfig = { ...serverConfig, ...config };
+}
+
+/**
+ * Get current server configuration.
+ * @returns {Object}
+ */
+export function getServerConfig() {
+  return { ...serverConfig };
+}
+
+/**
+ * Check if an operation is allowed based on server configuration.
+ * @param {string} operation - One of: 'upload', 'delete', 'rename', 'move'
+ * @returns {Object} - {allowed: boolean, reason: string}
+ */
+export function isOperationAllowed(operation) {
+  // READ_ONLY overrides everything
+  if (serverConfig.readOnly) {
+    return { allowed: false, reason: 'System is read-only' };
+  }
+  
+  switch (operation) {
+    case 'upload':
+      return { 
+        allowed: serverConfig.uploadEnabled, 
+        reason: serverConfig.uploadEnabled ? '' : 'Uploads disabled by administrator'
+      };
+    case 'delete':
+      return { 
+        allowed: serverConfig.deleteEnabled, 
+        reason: serverConfig.deleteEnabled ? '' : 'Deletion disabled by administrator'
+      };
+    case 'rename':
+      return { 
+        allowed: serverConfig.renameEnabled, 
+        reason: serverConfig.renameEnabled ? '' : 'Renaming disabled by administrator'
+      };
+    case 'move':
+      return { 
+        allowed: serverConfig.moveEnabled, 
+        reason: serverConfig.moveEnabled ? '' : 'Moving disabled by administrator'
+      };
+    default:
+      return { allowed: true, reason: '' };
   }
 }

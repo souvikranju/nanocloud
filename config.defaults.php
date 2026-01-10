@@ -50,3 +50,20 @@ $FILE_PERMISSIONS = 0644;
 // Note: Changing ownership typically requires root privileges or specific server configuration
 $FILE_OWNER = null;   // e.g., 'username' or null
 $FILE_GROUP = null;   // e.g., 'groupname' or null
+
+// Operation control flags
+// READ_ONLY: Master switch with highest priority - when true, ALL write operations are blocked
+$READ_ONLY = false;
+
+// Individual operation controls (only evaluated when READ_ONLY = false)
+// UPLOAD_ENABLED: Allow file/folder uploads and folder creation
+$UPLOAD_ENABLED = true;
+
+// DELETE_ENABLED: Allow file/folder deletion
+$DELETE_ENABLED = true;
+
+// RENAME_ENABLED: Allow file/folder renaming
+$RENAME_ENABLED = true;
+
+// MOVE_ENABLED: Allow file/folder moving
+$MOVE_ENABLED = true;

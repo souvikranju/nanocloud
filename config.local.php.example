@@ -63,3 +63,24 @@ declare(strict_types=1);
 // Leave null to keep default web server user
 // $FILE_OWNER = 'username';
 // $FILE_GROUP = 'groupname';
+
+// ============================================
+// OPERATION CONTROL
+// ============================================
+
+// Master read-only switch (highest priority)
+// When true, ALL write operations are blocked regardless of other settings
+// $READ_ONLY = true;
+
+// Individual operation controls (only evaluated when READ_ONLY = false)
+// Allow file/folder uploads and folder creation
+// $UPLOAD_ENABLED = false;
+
+// Allow file/folder deletion
+// $DELETE_ENABLED = false;
+
+// Allow file/folder renaming
+// $RENAME_ENABLED = false;
+
+// Allow file/folder moving
+// $MOVE_ENABLED = false;

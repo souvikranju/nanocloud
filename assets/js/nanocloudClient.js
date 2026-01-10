@@ -168,6 +168,19 @@ export function uploadSingle(file, path, relativePath, onProgress) {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const data = JSON.parse(xhr.responseText);
+          
+          // Check for server-level error (e.g., uploads disabled)
+          if (data && data.success === false && data.message) {
+            // Return error in expected format
+            resolve({
+              success: false,
+              filename: file.name,
+              message: data.message
+            });
+            return;
+          }
+          
+          // Normal response with results array
           const res = data && data.results && data.results[0];
           if (res) resolve(res);
           else reject(new Error('Unexpected response shape'));

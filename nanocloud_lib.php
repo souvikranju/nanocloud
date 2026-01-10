@@ -170,3 +170,47 @@ function apply_permissions(string $path, bool $isDir = false): void
         @chgrp($path, FILE_GROUP);
     }
 }
+
+/**
+ * Check if an operation is allowed based on configuration.
+ * READ_ONLY takes highest priority and blocks all write operations.
+ * 
+ * @param string $operation One of: 'upload', 'delete', 'rename', 'move'
+ * @return array ['allowed' => bool, 'message' => string]
+ */
+function check_operation_allowed(string $operation): array
+{
+    // READ_ONLY has highest priority - blocks ALL write operations
+    if (defined('READ_ONLY') && READ_ONLY === true) {
+        return [
+            'allowed' => false,
+            'message' => 'System is in read-only mode'
+        ];
+    }
+    
+    // Check specific operation flags
+    switch ($operation) {
+        case 'upload':
+            if (defined('UPLOAD_ENABLED') && UPLOAD_ENABLED === false) {
+                return ['allowed' => false, 'message' => 'Uploads disabled'];
+            }
+            break;
+        case 'delete':
+            if (defined('DELETE_ENABLED') && DELETE_ENABLED === false) {
+                return ['allowed' => false, 'message' => 'Deletion disabled'];
+            }
+            break;
+        case 'rename':
+            if (defined('RENAME_ENABLED') && RENAME_ENABLED === false) {
+                return ['allowed' => false, 'message' => 'Renaming disabled'];
+            }
+            break;
+        case 'move':
+            if (defined('MOVE_ENABLED') && MOVE_ENABLED === false) {
+                return ['allowed' => false, 'message' => 'Moving disabled'];
+            }
+            break;
+    }
+    
+    return ['allowed' => true, 'message' => ''];
+}

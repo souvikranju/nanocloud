@@ -217,7 +217,7 @@
                     <div class="shortcuts-grid">
                         <div class="shortcut-item">
                             <span class="shortcut-key">Ctrl/Cmd + U</span>
-                            <span class="shortcut-desc">Open upload modal</span>
+                            <span class="shortcut-desc">Upload files</span>
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-key">Ctrl/Cmd + A</span>
@@ -225,7 +225,7 @@
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-key">F5 / Ctrl+R</span>
-                            <span class="shortcut-desc">Refresh listing</span>
+                            <span class="shortcut-desc">Refresh files</span>
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-key">Delete / Backspace</span>
