@@ -115,4 +115,17 @@ function updateSelectionUI() {
       }
     }
   });
+  
+  // Update search result items (deep search)
+  const searchItems = document.querySelectorAll('.search-result-item');
+  searchItems.forEach(item => {
+    const itemName = item.dataset.name;
+    if (itemName) {
+      if (selectedItems.has(itemName)) {
+        item.classList.add('selected');
+      } else {
+        item.classList.remove('selected');
+      }
+    }
+  });
 }

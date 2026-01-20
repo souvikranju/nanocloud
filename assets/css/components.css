@@ -1263,3 +1263,201 @@ body.drag-active::after {
   flex: 1;
   min-width: 120px;
 }
+
+/* ===== SEARCH AND SORT CONTROLS ===== */
+.search-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  max-width: 600px;
+}
+
+.search-input {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-fast);
+  min-width: 0;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.search-input::placeholder {
+  color: var(--gray-400);
+}
+
+#clearSearchBtn {
+  padding: var(--space-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: var(--gray-400);
+  transition: all var(--transition-fast);
+  border-radius: var(--radius-md);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#clearSearchBtn:hover {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+#deepSearchBtn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sort-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sort-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.sort-select {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  background: white;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-width: 200px;
+}
+
+.sort-select:hover {
+  border-color: var(--gray-400);
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+/* ===== SEARCH RESULTS ===== */
+.search-results-header {
+  padding: var(--space-4);
+  background: var(--primary-50);
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-4);
+}
+
+.search-results-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--primary-900);
+  margin-bottom: var(--space-2);
+}
+
+.search-results-info {
+  font-size: var(--font-size-sm);
+  color: var(--primary-700);
+}
+
+.search-result-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-3);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: white;
+}
+
+.search-result-item:hover {
+  background: var(--gray-50);
+  border-color: var(--primary-300);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.search-result-item.selected {
+  background: var(--primary-50);
+  border-color: var(--primary-500);
+  box-shadow: var(--shadow-md);
+}
+
+.search-result-item:last-child {
+  margin-bottom: 0;
+}
+
+.search-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--gray-900);
+  margin-bottom: var(--space-2);
+  word-break: break-word;
+}
+
+.search-result-path {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.breadcrumb-link {
+  color: var(--primary-600);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  font-weight: var(--font-weight-medium);
+}
+
+.breadcrumb-link:hover {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  text-decoration: underline;
+}
+
+.search-result-meta {
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+}
+
+/* ===== LOADING SPINNER INLINE ===== */
+.loading-spinner-inline {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--gray-300);
+  border-top: 2px solid var(--primary-500);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+  margin-right: var(--space-1);
+}

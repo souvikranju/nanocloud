@@ -54,14 +54,16 @@
     height: 4px;
   }
 
-  .file-list-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
+  .file-list-controls-section {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+
+  .breadcrumbs-section {
+    padding: var(--space-3) var(--space-4);
   }
 
   .breadcrumbs {
-    justify-content: center;
+    justify-content: flex-start;
     font-size: var(--font-size-xs);
   }
 
@@ -69,6 +71,71 @@
     justify-content: space-between;
     flex-wrap: wrap;
     width: 100%;
+    gap: var(--space-3);
+  }
+
+  /* Search and sort controls mobile layout */
+  .search-container {
+    order: 1;
+    width: 100%;
+    max-width: none;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 150px;
+  }
+
+  #deepSearchBtn {
+    font-size: var(--font-size-xs);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .sort-container {
+    order: 2;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sort-select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Search results mobile */
+  .search-results-header {
+    padding: var(--space-3);
+  }
+
+  .search-results-title {
+    font-size: var(--font-size-base);
+  }
+
+  .search-results-info {
+    font-size: var(--font-size-xs);
+  }
+
+  .search-result-item {
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .search-result-name {
+    font-size: var(--font-size-sm);
+  }
+
+  .search-result-path {
+    font-size: var(--font-size-xs);
+  }
+
+  .search-result-meta {
+    font-size: var(--font-size-xs);
+  }
+
+  .breadcrumb-link {
+    font-size: var(--font-size-xs);
+    padding: 2px var(--space-1);
   }
 
   .view-toggle {
@@ -344,6 +411,55 @@
 
   .breadcrumbs {
     font-size: 11px;
+  }
+
+  /* Search and sort very small screens */
+  .search-input {
+    font-size: var(--font-size-xs);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  #clearSearchBtn {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+
+  #deepSearchBtn {
+    padding: var(--space-2);
+    font-size: 11px;
+  }
+
+  .sort-label {
+    font-size: 11px;
+  }
+
+  .sort-select {
+    font-size: 11px;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .search-results-header {
+    padding: var(--space-2);
+  }
+
+  .search-results-title {
+    font-size: var(--font-size-sm);
+  }
+
+  .search-result-item {
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+
+  .search-result-name {
+    font-size: var(--font-size-xs);
+  }
+
+  .file-list-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
   }
 
   .crumb {

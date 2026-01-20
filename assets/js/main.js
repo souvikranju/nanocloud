@@ -19,6 +19,7 @@ import { requestRefresh as stateRequestRefresh, setCurrentPathWithRefresh } from
 import { info as apiInfo, createDir as apiCreateDir } from './nanocloudClient.js';
 import { uploadFiles } from './uploader.js';
 import { updateChecker } from './updateChecker.js';
+import { isSearchActive } from './ui/filterSort.js';
 
 
 // =====================================
@@ -76,6 +77,11 @@ function initializeModules() {
   initToast({
     toastContainer: DOM.toastContainer,
   });
+  
+  // Expose toast functions globally for filterSort module
+  window.showError = showError;
+  window.showInfo = showInfo;
+  window.showSuccess = showSuccess;
 
 
   // Initialize progress tracking
@@ -103,6 +109,12 @@ function initializeModules() {
 // EVENT HANDLERS - MODAL MANAGEMENT
 // =====================================
 function showModal() {
+  // Check if search is active
+  if (isSearchActive()) {
+    showError('Cannot upload files while search is active. Clear search first.');
+    return;
+  }
+  
   // Check if uploads are allowed
   const check = isOperationAllowed('upload');
   if (!check.allowed) {
@@ -303,6 +315,12 @@ function handleNavigationUp() {
 }
 
 async function handleCreateFolder() {
+  // Check if search is active
+  if (isSearchActive()) {
+    showError('Cannot create folders while search is active. Clear search first.');
+    return;
+  }
+  
   // Check if uploads are allowed (creating folders is an upload operation)
   const check = isOperationAllowed('upload');
   if (!check.allowed) {
@@ -519,6 +537,12 @@ function setupGlobalEventHandlers() {
     dragCounter = 0;
     document.body.classList.remove('drag-active');
     
+    // Check if search is active
+    if (isSearchActive()) {
+      showError('Cannot upload files while search is active. Clear search first.');
+      return;
+    }
+    
     // Check if uploads are allowed before processing
     const check = isOperationAllowed('upload');
     if (!check.allowed) {
@@ -579,9 +603,13 @@ function setupGlobalEventHandlers() {
     }
   });
 
-  // Handle browser back/forward
+  // Handle browser back/forward and hash navigation
   window.addEventListener('popstate', () => {
-    // Could implement navigation history here
+    handleHashNavigation();
+  });
+  
+  window.addEventListener('hashchange', () => {
+    handleHashNavigation();
   });
 
   // Handle visibility change (pause/resume operations when tab is hidden)
@@ -591,12 +619,36 @@ function setupGlobalEventHandlers() {
       stateRequestRefresh();
     }
   });
+  
+  // Setup breadcrumb click handler for deep search results
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('breadcrumb-link')) {
+      e.stopPropagation();
+      const path = e.target.dataset.path;
+      const url = `${window.location.origin}${window.location.pathname}#path=${encodeURIComponent(path)}`;
+      window.open(url, '_blank');
+    }
+  });
+}
+
+/**
+ * Handle hash-based navigation for opening folders via URL
+ */
+function handleHashNavigation() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#path=')) {
+    const path = decodeURIComponent(hash.substring(6));
+    setCurrentPathWithRefresh(path);
+  }
 }
 
 // =====================================
 // SINGLE ENTRY POINT
 // =====================================
 // Start the application
-initializeApp().catch(error => {
+initializeApp().then(() => {
+  // Check for hash navigation on initial load
+  handleHashNavigation();
+}).catch(error => {
   console.error('Application failed to start:', error);
 });

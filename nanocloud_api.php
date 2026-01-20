@@ -115,10 +115,7 @@ function handle_list(string $uploadDir, string $uploadDirReal): void
         }
     }
 
-    // Sort dirs/files alphabetically
-    usort($dirs, fn($a, $b) => strcasecmp($a['name'], $b['name']));
-    usort($files, fn($a, $b) => strcasecmp($a['name'], $b['name']));
-
+    // No sorting here - frontend handles all sorting with multiple modes
     $items = array_merge($dirs, $files);
 
     send_json([

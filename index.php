@@ -54,10 +54,31 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- File List Header -->
-            <div class="file-list-header">
-                <div class="breadcrumbs" id="breadcrumbs"></div>
+            <!-- File List Controls (Top Section) -->
+            <div class="file-list-controls-section">
                 <div class="file-list-controls">
+                    <!-- Search Container -->
+                    <div class="search-container">
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search in current folder..." />
+                        <button id="clearSearchBtn" class="btn-icon hidden" title="Clear search">×</button>
+                        <button id="deepSearchBtn" class="btn btn-secondary" title="Search in all subfolders">
+                            🔍 Search Subfolders
+                        </button>
+                    </div>
+                    
+                    <!-- Sort Container -->
+                    <div class="sort-container">
+                        <label for="sortSelect" class="sort-label">Sort:</label>
+                        <select id="sortSelect" class="sort-select">
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                            <option value="date-desc">Date Modified (Newest First)</option>
+                            <option value="date-asc">Date Modified (Oldest First)</option>
+                            <option value="size-desc">Size (Largest First)</option>
+                            <option value="size-asc">Size (Smallest First)</option>
+                        </select>
+                    </div>
+                    
                     <!-- View Toggle -->
                     <div class="view-toggle">
                         <button class="view-toggle-btn" id="gridViewBtn" title="Grid View">
@@ -82,6 +103,11 @@
                         </span>
                     </button>
                 </div>
+            </div>
+
+            <!-- Breadcrumbs Section (Separate Row) -->
+            <div class="breadcrumbs-section">
+                <div class="breadcrumbs" id="breadcrumbs"></div>
             </div>
 
             <!-- File List Container -->

@@ -41,12 +41,14 @@ Designed to solve the "How do I send you these photos?" problem.
 
 - **📁 File Management**: Upload, download, rename, move, and delete files and folders
 - **🗂️ Directory Navigation**: Browse nested directories with breadcrumb navigation
+- **🔍 Advanced Search**: Quick search in current folder or deep recursive search across all subfolders
+- **🔄 Client-Side Sorting**: Sort by name, date, or size (ascending/descending) - all in browser
 - **📊 Storage Monitoring**: Real-time storage usage visualization
 - **🎨 Modern UI**: Clean, responsive design with grid and list view modes
 - **📱 Mobile Optimized**: Touch-friendly interface with press-and-hold selection
 - **⚡ Fast Performance**: Optimized for speed with concurrent uploads
 - **🔒 Secure**: Path traversal protection and input sanitization
-- **🎯 Multi-Select**: Select multiple items for batch operations
+- **🎯 Multi-Select**: Select multiple items for batch operations (works in search results too!)
 - **⌨️ Keyboard Shortcuts**: Efficient navigation with keyboard commands
 - **🎬 Media Streaming**: Stream videos, audio, and view images directly in browser
 - **📦 Drag & Drop**: Upload files and folders by dragging them anywhere on the page
@@ -132,6 +134,7 @@ nanocloud/
 │       │
 │       └── ui/               # UI modules
 │           ├── fileIcons.js      # File type icons
+│           ├── filterSort.js     # Search and sorting system
 │           ├── itemActions.js    # Item operations
 │           ├── keyboardShortcuts.js # Keyboard handling
 │           ├── list.js           # File list rendering
@@ -339,17 +342,51 @@ export const REFRESH_DEBOUNCE_MS = 300;
 - **Tap after selection**: Add more items to selection
 - **Drag & Drop**: Upload files anywhere on the page
 
+### Search & Sort
+
+1. **Quick Search** (Current Folder):
+   - Type in the search box
+   - Results appear after 1-second debounce
+   - Searches files and folders in current directory only
+   - Case-insensitive partial matching
+
+2. **Deep Search** (Recursive):
+   - Click "🔍 Search Subfolders" button
+   - Searches all files and folders recursively
+   - Shows full path for each result
+   - Click breadcrumb paths to navigate to parent folders
+   - Click file/folder names to open in new tab
+
+3. **Sorting**:
+   - Choose from dropdown: Name (A-Z/Z-A), Date (Newest/Oldest), Size (Largest/Smallest)
+   - All sorting happens in browser (no server calls)
+   - Folders always appear before files
+   - Sort preference saved in browser
+
+4. **Search + Sort**:
+   - Sorting works on search results
+   - Search persists during auto-refresh
+   - Search clears when navigating to different folders
+
+5. **Multi-Select in Search**:
+   - Works in both quick and deep search results
+   - `Ctrl/Cmd + A` selects all search results
+   - Delete and Rename operations available
+   - Move disabled in deep search (items in different folders)
+
 ### File Operations
 
 1. **Upload Files & Folders**:
    - Click the `+` button (FAB) to select files or folders
    - Drag and drop files or folders anywhere
    - Use `Ctrl/Cmd + U` shortcut
+   - Upload disabled during search (clear search first)
 
 2. **Create Folder**:
    - Click "New Folder" button
    - Enter folder name
    - Folder appears in current directory
+   - Disabled during search
 
 3. **Navigate**:
    - Click folders to open
@@ -360,12 +397,13 @@ export const REFRESH_DEBOUNCE_MS = 300;
    - `Ctrl/Cmd + Click` to select multiple items
    - Use "Select All" button
    - Press & hold on touch devices
+   - Works in normal view and search results
 
 5. **Batch Operations**:
    - Select multiple items
    - Use selection bar buttons:
      - Rename (single item only)
-     - Move to another folder
+     - Move to another folder (disabled in deep search)
      - Delete selected items
 
 ## 🔒 Security
