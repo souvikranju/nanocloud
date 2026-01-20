@@ -9,6 +9,7 @@ export { API_URL, DOWNLOAD_BASE };
 
 /** Current relative path within the uploads tree. Empty string means root. */
 let currentPath = '';
+let previousPath = '';
 
 /** Server configuration including limits and operation control */
 let serverConfig = {
@@ -45,7 +46,16 @@ export function getCurrentPath() {
  * @param {string} path
  */
 export function setCurrentPath(path) {
+  previousPath = currentPath;
   currentPath = path || '';
+}
+
+/**
+ * Check if path has changed since last call
+ * @returns {boolean}
+ */
+export function hasPathChanged() {
+  return previousPath !== currentPath;
 }
 
 /**

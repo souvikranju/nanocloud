@@ -11,7 +11,7 @@ import {
 } from '../constants.js';
 import { joinPath } from '../utils.js';
 import { list as apiList } from '../nanocloudClient.js';
-import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh, isOperationAllowed } from '../state.js';
+import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh, isOperationAllowed, hasPathChanged, setCurrentPathWithRefresh } from '../state.js';
 import { showError } from './toast.js';
 import { 
   createFileIconElement,
@@ -38,6 +38,13 @@ import {
   moveSelectedItems,
   updateItemActionsItems
 } from './itemActions.js';
+import { 
+  initFilterSort, 
+  applySortAndFilter, 
+  resetSearch,
+  isSearchActive,
+  getSearchMode
+} from './filterSort.js';
 
 // DOM References
 /** @type {HTMLElement|null} */ let fileListEl = null;
@@ -54,6 +61,8 @@ import {
 // State
 let currentViewMode = VIEW_MODE_LIST; // Default to list view
 let currentItems = [];
+let rawItems = []; // Store raw items from API before filtering/sorting
+let currentSearchMode = 'normal'; // 'normal', 'quick', or 'deep'
 
 /**
  * Initialize DOM references for list UI
@@ -94,6 +103,19 @@ export function initList(refs) {
   
   // Register this module's fetchAndRenderList as the auto-refresh callback
   registerAutoRefresh((requestId) => fetchAndRenderListWithTracking(requestId));
+  
+  // Initialize filter and sort module
+  initFilterSort({
+    searchInput: document.getElementById('searchInput'),
+    clearSearchBtn: document.getElementById('clearSearchBtn'),
+    deepSearchBtn: document.getElementById('deepSearchBtn'),
+    sortSelect: document.getElementById('sortSelect')
+  });
+  
+  // Set up callback for filter/sort changes
+  window.filterSortCallback = () => {
+    applyFilterSortAndRender();
+  };
 }
 
 /**
@@ -294,8 +316,9 @@ export function updateBreadcrumbs(breadcrumbs) {
   rootCrumb.className = 'crumb';
   rootCrumb.textContent = 'Home';
   rootCrumb.addEventListener('click', () => {
-    setCurrentPath('');
-    requestRefresh();
+    // Clear search before navigation
+    resetSearch();
+    setCurrentPathWithRefresh('');
   });
   breadcrumbsEl.appendChild(rootCrumb);
 
@@ -310,11 +333,12 @@ export function updateBreadcrumbs(breadcrumbs) {
       crumb.className = 'crumb';
       crumb.textContent = seg;
       
-      const currentPath = breadcrumbs.slice(0, index + 1).join('/');
+      const targetPath = breadcrumbs.slice(0, index + 1).join('/');
       
       crumb.addEventListener('click', () => {
-        setCurrentPath(currentPath);
-        requestRefresh();
+        // Clear search before navigation
+        resetSearch();
+        setCurrentPathWithRefresh(targetPath);
       });
       breadcrumbsEl.appendChild(crumb);
     });
@@ -326,17 +350,108 @@ export function updateBreadcrumbs(breadcrumbs) {
 }
 
 /**
+ * Apply filter/sort and render
+ */
+function applyFilterSortAndRender() {
+  const result = applySortAndFilter(rawItems);
+  const previousSearchMode = currentSearchMode;
+  currentSearchMode = result.mode;
+  
+  // Clear selection when search mode changes
+  if (previousSearchMode !== currentSearchMode) {
+    clearSelection();
+  }
+  
+  // Update upload controls based on search state
+  updateUploadControlsState();
+  
+  // Update move button state based on search mode
+  updateMoveButtonState();
+  
+  if (result.mode === 'deep') {
+    renderDeepSearchResults(result.items, result.query);
+  } else {
+    renderNormalItems(result.items, result.mode, result.query);
+  }
+}
+
+/**
+ * Update upload controls (FAB and New Folder button) based on search state
+ */
+function updateUploadControlsState() {
+  const fabUpload = document.getElementById('fabUpload');
+  const newFolderBtn = document.getElementById('newFolderBtn');
+  const searchActive = isSearchActive();
+  
+  if (fabUpload) {
+    if (searchActive) {
+      fabUpload.style.display = 'none';
+    } else {
+      fabUpload.style.display = '';
+    }
+  }
+  
+  if (newFolderBtn) {
+    if (searchActive) {
+      newFolderBtn.style.display = 'none';
+    } else {
+      newFolderBtn.style.display = '';
+    }
+  }
+}
+
+/**
+ * Update Move button state based on search mode
+ */
+function updateMoveButtonState() {
+  const moveSelectedBtn = document.getElementById('moveSelectedBtn');
+  
+  if (!moveSelectedBtn) return;
+  
+  const searchMode = getSearchMode();
+  const moveCheck = isOperationAllowed('move');
+  
+  if (searchMode === 'deep') {
+    // Disable move in deep search mode
+    moveSelectedBtn.disabled = true;
+    moveSelectedBtn.title = 'Move not available in deep search';
+    moveSelectedBtn.style.opacity = '0.5';
+    moveSelectedBtn.style.cursor = 'not-allowed';
+  } else if (!moveCheck.allowed) {
+    // Disabled by server configuration
+    moveSelectedBtn.disabled = true;
+    moveSelectedBtn.title = moveCheck.reason;
+    moveSelectedBtn.style.opacity = '0.5';
+    moveSelectedBtn.style.cursor = 'not-allowed';
+  } else {
+    // Enabled
+    moveSelectedBtn.disabled = false;
+    moveSelectedBtn.title = 'Move selected items';
+    moveSelectedBtn.style.opacity = '';
+    moveSelectedBtn.style.cursor = '';
+  }
+}
+
+/**
  * Render items in current view mode
  * @param {Array} items - File/folder items
  */
 export function renderItems(items) {
+  rawItems = items || [];
+  applyFilterSortAndRender();
+}
+
+/**
+ * Render normal items (not deep search results)
+ * @param {Array} items - Processed items
+ * @param {string} mode - 'normal' or 'quick'
+ * @param {string} query - Search query
+ */
+function renderNormalItems(items, mode, query) {
   if (!fileListEl || !emptyStateEl) return;
   
   currentItems = items || [];
   fileListEl.innerHTML = '';
-  
-  // Don't clear selection on refresh - preserve user's selection
-  // clearSelection();
   
   setExistingNamesFromList(currentItems);
   
@@ -346,16 +461,223 @@ export function renderItems(items) {
   updateItemActionsItems(currentItems);
 
   if (!currentItems || currentItems.length === 0) {
-    emptyStateEl.style.display = 'flex';
+    if (mode === 'quick' && query) {
+      showEmptySearchState(query);
+    } else {
+      emptyStateEl.style.display = 'flex';
+    }
     return;
   }
   
   emptyStateEl.style.display = 'none';
 
+  // Show search header for quick search
+  if (mode === 'quick' && query) {
+    const header = document.createElement('div');
+    header.className = 'search-results-header';
+    header.innerHTML = `
+      <div class="search-results-title">
+        🔍 Search Results (${currentItems.length} items found)
+      </div>
+      <div class="search-results-info">
+        Searching in: ${getCurrentPath() || 'Home'}
+      </div>
+    `;
+    fileListEl.appendChild(header);
+  }
+
   if (currentViewMode === VIEW_MODE_GRID) {
     renderGridView(currentItems);
   } else {
     renderListView(currentItems);
+  }
+}
+
+/**
+ * Render deep search results with paths
+ * @param {Array} items - Search result items with path info
+ * @param {string} query - Search query
+ */
+function renderDeepSearchResults(items, query) {
+  if (!fileListEl || !emptyStateEl) return;
+  
+  currentItems = items || [];
+  fileListEl.innerHTML = '';
+  emptyStateEl.style.display = 'none';
+  
+  // Update references in other modules
+  updateTouchHandlerItems(currentItems);
+  updateKeyboardShortcutItems(currentItems);
+  updateItemActionsItems(currentItems);
+  
+  if (!currentItems || currentItems.length === 0) {
+    showEmptySearchState(query);
+    return;
+  }
+  
+  // Show search header
+  const header = document.createElement('div');
+  header.className = 'search-results-header';
+  header.innerHTML = `
+    <div class="search-results-title">
+      🔍 Deep Search Results (${currentItems.length} items found)
+    </div>
+    <div class="search-results-info">
+      Searched from: ${getCurrentPath() || 'Home'}
+    </div>
+  `;
+  fileListEl.appendChild(header);
+  
+  // Render each result with path
+  currentItems.forEach(item => {
+    const resultItem = createDeepSearchResultItem(item);
+    fileListEl.appendChild(resultItem);
+  });
+}
+
+/**
+ * Show empty search state
+ * @param {string} query - Search query
+ */
+function showEmptySearchState(query) {
+  if (!emptyStateEl) return;
+  
+  emptyStateEl.innerHTML = `
+    <div class="empty-state-icon">🔍</div>
+    <div class="empty-state-title">No items found</div>
+    <div class="empty-state-description">
+      No items match "${query}"
+    </div>
+  `;
+  emptyStateEl.style.display = 'flex';
+}
+
+/**
+ * Create deep search result item element
+ * @param {Object} item - Item with path info
+ * @returns {HTMLLIElement}
+ */
+function createDeepSearchResultItem(item) {
+  const li = document.createElement('li');
+  li.className = 'search-result-item';
+  
+  // Add data attributes for selection support
+  li.dataset.name = item.name;
+  li.dataset.type = item.type;
+  
+  // Apply selection state if item is selected
+  if (isSelected(item.name)) {
+    li.classList.add('selected');
+  }
+  
+  // Icon
+  const iconEl = createListIconElement(item.name, item.type);
+  
+  // Main info container
+  const infoContainer = document.createElement('div');
+  infoContainer.className = 'search-result-info';
+  
+  // Name - clickable for files
+  const nameEl = document.createElement('div');
+  nameEl.className = 'search-result-name';
+  nameEl.textContent = item.name;
+  
+  // Make name clickable to download/open file or navigate to folder
+  nameEl.style.cursor = 'pointer';
+  nameEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    
+    // Check if selection mode is active
+    const selectedItems = getSelectedItems();
+    if (selectedItems.size > 0) {
+      // In selection mode, clicking name toggles selection
+      const selected = isSelected(item.name);
+      toggleItemSelection(item.name, !selected);
+      return;
+    }
+    
+    // Normal mode: open/download
+    handleDeepSearchResultClick(item);
+  });
+  
+  // Clickable breadcrumb path - opens parent directory
+  const pathEl = document.createElement('div');
+  pathEl.className = 'search-result-path';
+  pathEl.innerHTML = createClickableBreadcrumb(item);
+  
+  // Metadata
+  const metaEl = document.createElement('div');
+  metaEl.className = 'search-result-meta';
+  metaEl.textContent = createMetadataText(item);
+  
+  infoContainer.appendChild(nameEl);
+  infoContainer.appendChild(pathEl);
+  infoContainer.appendChild(metaEl);
+  
+  li.appendChild(iconEl);
+  li.appendChild(infoContainer);
+  
+  // Add click handler for selection support
+  li.addEventListener('click', (e) => {
+    // Ctrl/Cmd+Click for multi-select
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const selected = isSelected(item.name);
+      toggleItemSelection(item.name, !selected);
+      return;
+    }
+    
+    const selectedItems = getSelectedItems();
+    
+    // If ANY items are selected (selection mode is active)
+    if (selectedItems.size > 0) {
+      e.preventDefault();
+      
+      // If this item is already selected, deselect it
+      if (isSelected(item.name)) {
+        toggleItemSelection(item.name, false);
+      } else {
+        // Add this item to selection
+        toggleItemSelection(item.name, true);
+      }
+    }
+  });
+  
+  return li;
+}
+
+/**
+ * Create clickable breadcrumb for search result
+ * @param {Object} item - Item with breadcrumbs
+ * @returns {string} - HTML string
+ */
+function createClickableBreadcrumb(item) {
+  const parts = ['Home'];
+  if (item.breadcrumbs && item.breadcrumbs.length > 0) {
+    parts.push(...item.breadcrumbs);
+  }
+  
+  return parts.map((part, index) => {
+    const path = index === 0 ? '' : parts.slice(1, index + 1).join('/');
+    return `<span class="breadcrumb-link" data-path="${path}">${part}</span>`;
+  }).join(' › ');
+}
+
+/**
+ * Handle deep search result click
+ * @param {Object} item - Item with path info
+ */
+function handleDeepSearchResultClick(item) {
+  if (item.type === 'dir') {
+    // Open folder in new tab
+    const url = `${window.location.origin}${window.location.pathname}#path=${encodeURIComponent(item.fullPath)}`;
+    window.open(url, '_blank');
+  } else {
+    // Open/download file in new tab
+    const downloadUrl = DOWNLOAD_BASE + 
+      (item.displayPath ? `?path=${encodeURIComponent(item.displayPath)}&file=` : '?file=') + 
+      encodeURIComponent(item.name);
+    window.open(downloadUrl, '_blank');
   }
 }
 
@@ -550,8 +872,7 @@ function renderListView(items) {
  */
 function handleItemClick(entry) {
   if (entry.type === 'dir') {
-    setCurrentPath(joinPath(getCurrentPath(), entry.name));
-    requestRefresh();
+    setCurrentPathWithRefresh(joinPath(getCurrentPath(), entry.name));
   } else {
     const path = getCurrentPath();
     const downloadUrl = DOWNLOAD_BASE + (path ? (`?path=${encodeURIComponent(path)}&file=`) : ('?file=')) + encodeURIComponent(entry.name);
@@ -589,6 +910,12 @@ async function fetchAndRenderListWithTracking(requestId) {
     setCurrentPath(resp.path || '');
     updateBreadcrumbs(resp.breadcrumbs || []);
     updateStorage(resp.storage);
+    
+    // Reset search only if path changed (navigation), not on auto-refresh
+    if (hasPathChanged()) {
+      resetSearch();
+    }
+    
     renderItems(resp.items || []);
   } catch (err) {
     showError(`Error loading items: ${err.message || err}`);
@@ -609,6 +936,12 @@ export async function fetchAndRenderList() {
     setCurrentPath(resp.path || '');
     updateBreadcrumbs(resp.breadcrumbs || []);
     updateStorage(resp.storage);
+    
+    // Reset search only if path changed (navigation), not on initial load
+    if (hasPathChanged()) {
+      resetSearch();
+    }
+    
     renderItems(resp.items || []);
   } catch (err) {
     showError(`Error loading items: ${err.message || err}`);
