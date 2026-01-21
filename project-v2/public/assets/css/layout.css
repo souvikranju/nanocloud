@@ -1,0 +1,175 @@
+/* =====================================
+   LAYOUT COMPONENTS
+   ===================================== */
+
+/* Container */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+/* Header Section */
+.header-section {
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  color: white;
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.header-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.header-logo {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.header-info h1 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  margin: 0;
+}
+
+.header-info .subtitle {
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-tight);
+}
+
+/* Storage Card */
+.storage-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.storage-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-2);
+  opacity: 0.9;
+}
+
+.storage-text {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-2);
+}
+
+.storage-bar-wrap {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  height: 6px;
+}
+
+.storage-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.bar-green { background: var(--success-500); }
+.bar-orange { background: var(--warning-500); }
+.bar-red { background: var(--error-500); }
+
+/* Main Content */
+.main-content {
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+/* File List Controls Section (Top Row) */
+.file-list-controls-section {
+  padding: var(--space-6) var(--space-6) var(--space-4);
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.file-list-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Breadcrumbs Section (Separate Row) */
+.breadcrumbs-section {
+  padding: var(--space-4) var(--space-6);
+  background: white;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+/* File List Container */
+.file-list-container {
+  padding: var(--space-6);
+  min-height: 400px;
+}
+
+/* Selection Bar */
+.selection-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--primary-600);
+  color: white;
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-sticky);
+  transform: translateY(-100%);
+  transition: transform var(--transition-normal);
+}
+
+.selection-bar.visible {
+  transform: translateY(0);
+}
+
+.selection-info {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.selection-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.selection-actions .btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.selection-actions .btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
