@@ -1,12 +1,14 @@
-# User's local configuration file (not tracked by git)
-# Users should create this file to override default settings
-config.local.php
+# Local configuration
+config/local.php
+
+# Storage directory (user files)
+storage/*
+!storage/.gitkeep
 
 # Temporary files
 .temp/
-*.tmp
 
-# IDE and editor files
+# IDE files
 .vscode/
 .idea/
 *.swp
@@ -16,3 +18,6 @@ config.local.php
 # OS files
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
