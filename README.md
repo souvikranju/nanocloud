@@ -2,9 +2,13 @@
 
 A minimal, fast, self-hosted cloud storage server with a modern, responsive interface. Upload, organize, and access your files from anywhere with an elegant web interface.
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![PHP](https://img.shields.io/badge/PHP-8.0%2B-777BB4?logo=php)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6%2B-F7DF1E?logo=javascript)
+
 ## 🚀 Overview
 
-This project was born out of a personal need for a lightweight, high-performance file management solution. It serves two primary purposes:
+NanoCloud was born out of a personal need for a lightweight, high-performance file management solution. It serves two primary purposes:
 
 ### 📂 Network Dropbox
 A minimal, self-hosted alternative to Google Drive, OneDrive, or Dropbox.
@@ -29,15 +33,17 @@ Designed to solve the "How do I send you these photos?" problem.
 ## 📸 Screenshots
 
 ### Desktop Interface
-![Desktop View - List Mode](assets/image/desktop-list-view.png)
-*List view with file information*
+![Desktop View - List Mode](public/assets/images/desktop-list-view.png)
+*List view with file information and operations*
+
+![Desktop View - Grid Mode](public/assets/images/desktop-grid-view.png)
+*Grid view for visual browsing*
 
 ### Mobile Interface
-![Mobile View - File Browser](assets/image/mobile-file-browser.png)
-
+![Mobile View - File Browser](public/assets/images/mobile-file-browser.png)
 *Touch-optimized file browser with responsive design*
 
-## 🚀 Features
+## ✨ Features
 
 - **📁 File Management**: Upload, download, rename, move, and delete files and folders
 - **🗂️ Directory Navigation**: Browse nested directories with breadcrumb navigation
@@ -52,273 +58,116 @@ Designed to solve the "How do I send you these photos?" problem.
 - **⌨️ Keyboard Shortcuts**: Efficient navigation with keyboard commands
 - **🎬 Media Streaming**: Stream videos, audio, and view images directly in browser
 - **📦 Drag & Drop**: Upload files and folders by dragging them anywhere on the page
+- **🔄 Self-Update**: Built-in update system to keep your installation current
 
 ## 📋 Requirements
-No frameworks, heavy tools - just **Pure HTML/JS/CSS**
 
-- **PHP 7.4+** with extensions:
+- **PHP 8.0+** with extensions:
   - `fileinfo` (for MIME type detection)
   - `json` (for API responses)
-- **Web Server**: Apache, Nginx, or any PHP-compatible server
+  - `PharData` (for self-update system)
+- **Web Server**: Apache, Nginx, Lighttpd, or any PHP-compatible server
 - **Storage**: Sufficient disk space for your files
+- **rsync**: For atomic updates (usually pre-installed on Linux)
 
-## 🛠️ Installation
+## 🚀 Quick Start
 
-1. **Clone or download** this repository to your web server directory:
-   ```bash
-   git clone https://github.com/yourusername/nanocloud.git
-   cd nanocloud
-   ```
+### 1. Download & Extract
+```bash
+git clone https://github.com/souvikranju/nanocloud.git
+cd nanocloud
+```
 
-2. **Configure PHP settings** in `php.ini`:
-   ```ini
-   file_uploads = On
-   upload_max_filesize = 2G # As required
-   post_max_size = 2G # As required
-   max_file_uploads = 50
-   ```
+### 2. Configure Web Server
+Configure your web server to point to the installation directory:
 
-3. **Configure NanoCloud**:
-   
-   See the [Configuration System](#configuration-system)
+```apache
+# Apache
+DocumentRoot /path/to/nanocloud
+```
 
-4. **Set permissions**:
-   ```bash
-   chmod 755 /path/to/your/storage
-   chown www-data:www-data /path/to/your/storage
-   ```
+```nginx
+# Nginx
+root /path/to/nanocloud;
+```
 
-5. **Access** via web browser:
-   ```
-   http://your-server/nanocloud/
-   ```
+> 📖 **Detailed setup instructions:** See [Quick Start Guide](docs/QUICK_START.md)
+
+### 3. Configure NanoCloud
+```bash
+cp config/local.php.example config/local.php
+nano config/local.php  # Edit your settings
+```
+
+### 4. Set Permissions
+```bash
+chmod 755 storage
+chown www-data:www-data storage
+```
+
+### 5. Access
+Open your browser and navigate to your server URL.
+
+> 📖 **Need help?** See [Deployment Guide](docs/DEPLOYMENT.md)
 
 ## 📁 Project Structure
 
 ```
 nanocloud/
-├── config.php                # Configuration and constants
-├── config.defaults.php       # Default configuration values
-├── config.local.php          # Local overrides (not tracked)
-├── config.local.php.example  # Example local configuration
-├── index.php                 # Main HTML interface
-├── nanocloud_api.php         # REST API endpoints
-├── nanocloud_download.php    # File download handler
-├── nanocloud_lib.php         # Shared utility functions
-├── nanocloud_update_api.php  # Self-update system API
-├── version.json              # Current version information
-├── README.md                 # This file
+├── public/                      # Web root (ONLY this is publicly accessible)
+│   ├── index.php               # Main HTML page
+│   ├── api.php                 # API router
+│   ├── download.php            # Download handler
+│   ├── update_api.php          # Update system API
+│   └── assets/                 # Frontend assets (CSS, JS, images)
 │
-├── .temp/                    # Temporary files (auto-created)
-│   ├── backup/               # Backup archives for rollback
-│   ├── update_download/      # Downloaded update packages
-│   └── update_staging/       # Staged updates before deployment
+├── src/                        # Application source (NOT web-accessible)
+│   ├── autoload.php           # PSR-4 autoloader
+│   ├── Core/                  # Core classes (Config, Request, Response)
+│   ├── Services/              # Business logic layer
+│   ├── Security/              # Security classes
+│   └── Helpers/               # Utility functions
 │
-├── assets/
-│   ├── css/                  # Modular CSS architecture
-│   │   ├── variables.css     # Design system variables
-│   │   ├── base.css          # Reset and base styles
-│   │   ├── layout.css        # Layout components
-│   │   ├── components.css    # UI components
-│   │   ├── utilities.css     # Utility classes
-│   │   └── responsive.css    # Mobile responsiveness
-│   │
-│   └── js/                   # Modular JavaScript
-│       ├── constants.js      # Application constants
-│       ├── main.js           # Application entry point
-│       ├── nanocloudClient.js # API client
-│       ├── state.js          # State management
-│       ├── updateChecker.js  # Update notification system
-│       ├── uploader.js       # Upload orchestration
-│       ├── utils.js          # Utility functions
-│       │
-│       └── ui/               # UI modules
-│           ├── fileIcons.js      # File type icons
-│           ├── filterSort.js     # Search and sorting system
-│           ├── itemActions.js    # Item operations
-│           ├── keyboardShortcuts.js # Keyboard handling
-│           ├── list.js           # File list rendering
-│           ├── progress.js       # Upload progress
-│           ├── selection.js      # Multi-select system
-│           ├── toast.js          # Notifications
-│           └── touchHandlers.js  # Touch interactions
+├── config/                     # Configuration files
+│   ├── defaults.php           # Default configuration
+│   ├── local.php.example      # Example local config
+│   └── local.php              # Local overrides (gitignored)
+│
+├── storage/                    # File storage directory
+│   └── .temp/                 # Temporary upload staging
+│
+└── docs/                       # Documentation
 ```
-
-## 🔄 Self-Update System
-
-NanoCloud includes a built-in self-update mechanism that allows you to update to the latest version directly from the web interface.
-
-### Update Requirements
-
-- **PHP Extensions**: `PharData` for archive handling
-- **Write Permissions**: Web server must have write access to installation directory
-- **rsync**: Required for atomic deployment (usually pre-installed on Linux)
-- **Internet Access**: To fetch updates from GitHub
-
-### Troubleshooting Updates
-
-**Permission errors:**
-```bash
-# Grant write permissions to web server
-sudo chown -R www-data:www-data /path/to/nanocloud
-sudo chmod -R 755 /path/to/nanocloud
-```
-
-**Update stuck:**
-- Stale locks auto-cleanup after 10 minutes
-- Manually remove `.temp/update.lock` if needed
-
-**Rollback fails:**
-- Ensure backup exists in `.temp/backup/`
-- Check write permissions
-- Manually extract backup if needed
-
-## 🎯 Architecture
-
-### Backend (PHP)
-
-**Key Features:**
-- Path traversal protection
-- Input sanitization
-- Transactional uploads with rollback
-- Session-based upload limits
-- Recursive directory operations
-- Storage metrics calculation
-
-### Frontend (JavaScript)
-
-**ES6 Modules:**
-- State management with reactive updates
-- Event-driven architecture
-- Optimized rendering with debouncing
-
-**UI Components:**
-- Grid and list view modes
-- Multi-select with keyboard/touch support
-- Real-time upload progress
-- Toast notifications
-- Modal dialogs
-- Breadcrumb navigation
-
-### Styling (CSS)
-
-**Modular CSS Architecture:**
-- `variables.css` - Design tokens and CSS custom properties
-- `base.css` - Reset and typography
-- `layout.css` - Page structure and containers
-- `components.css` - Reusable UI components
-- `utilities.css` - Helper classes and animations
-- `responsive.css` - Mobile-first responsive design
 
 ## ⚙️ Configuration
 
-### Configuration System
+NanoCloud uses a flexible configuration system. Create `config/local.php` to customize:
 
-NanoCloud uses a flexible configuration system that preserves your custom settings during upgrades:
-
-**Files:**
-- `config.defaults.php` - Default settings
-- `config.php` - Configuration loader
-- `config.local.php` - Your custom settings (NOT tracked by git, preserved during upgrades)
-- `config.local.php.example` - Example configuration with all available options
-
-**Setup:**
-
-   ```bash
-   # Copy the example file
-   cp config.local.php.example config.local.php
-   
-   # Edit with your settings
-   nano config.local.php
-   ```
-
-### Available Settings
-
-Edit `config.local.php` to customize these settings:
-
-#### Storage Configuration
 ```php
-// Storage root directory (absolute path)
-$STORAGE_ROOT = '/path/to/your/storage';
-```
+<?php
+// Storage location
+$STORAGE_ROOT = '/path/to/storage';
 
-#### Upload Limits
-```php
-// User-defined maximum file size in bytes
-$user_defined_max = 5368709120; // 5GB
-
-// Maximum session size in bytes
+// Upload limits
+$USER_DEFINED_MAX_FILE_SIZE = 5368709120; // 5GB
 $MAX_SESSION_BYTES = 5368709120; // 5GB
-```
 
-#### Download Settings
-```php
-// Download rate limit in MB/s (0 = unlimited)
-$DOWNLOAD_RATE_LIMIT_MB = 10;
-```
+// Download rate limiting
+$DOWNLOAD_RATE_LIMIT_MB = 10; // MB/s (0 = unlimited)
 
-#### File Permissions
-```php
-// Directory permissions (octal notation)
-$DIR_PERMISSIONS = 0755; // rwxr-xr-x
+// File permissions
+$DIR_PERMISSIONS = 0755;
+$FILE_PERMISSIONS = 0644;
 
-// File permissions (octal notation)
-$FILE_PERMISSIONS = 0644; // rw-r--r--
-```
-
-#### Ownership (requires appropriate privileges)
-```php
-// Change owner for uploaded/created files
-$FILE_OWNER = 'username';
-$FILE_GROUP = 'groupname';
-```
-
-#### Operation Control
-
-Control which operations are allowed system-wide. These settings provide granular control over write operations and can be used to implement read-only modes or restrict specific functionality.
-
-```php
-// Master read-only switch (highest priority)
-// When true, ALL write operations are blocked regardless of other settings
+// Operation control
 $READ_ONLY = false;
-
-// Individual operation controls (only evaluated when READ_ONLY = false)
-$UPLOAD_ENABLED = true;   // Allow file/folder uploads and folder creation
-$DELETE_ENABLED = true;   // Allow file/folder deletion
-$RENAME_ENABLED = true;   // Allow file/folder renaming
-$MOVE_ENABLED = true;     // Allow file/folder moving
+$UPLOAD_ENABLED = true;
+$DELETE_ENABLED = true;
+$RENAME_ENABLED = true;
+$MOVE_ENABLED = true;
 ```
 
-**Configuration Priority:**
-- `READ_ONLY` has the highest priority and overrides all other settings
-- When `READ_ONLY = true`, all write operations are blocked regardless of other flags
-
-**UI Behavior:**
-- Disabled controls are visually dimmed and show explanatory tooltips
-- When `READ_ONLY=true`: Tooltip shows "System is read-only"
-- When specific feature disabled: Tooltip shows "[Feature] disabled by administrator"
-
-**Use Cases:**
-- **Maintenance Mode**: Set `READ_ONLY = true` to prevent changes during backups or maintenance
-- **Archive Mode**: Disable uploads/deletes to preserve historical data while allowing browsing
-- **Restricted Access**: Disable specific operations based on deployment requirements
-- **Temporary Restrictions**: Quickly disable operations without complex permission systems
-
-### How Configuration Works
-
-1. **Load Defaults**: `config.defaults.php` is loaded first (default configuration)
-2. **Apply Overrides**: If `config.local.php` exists, it overrides the defaults
-
-### Frontend Constants (`assets/js/constants.js`)
-
-```javascript
-// Upload settings
-export const MAX_CONCURRENT_UPLOADS = 3;
-export const UPLOAD_PROGRESS_AUTO_HIDE_MS = 5000;
-
-// UI settings
-export const REFRESH_DEBOUNCE_MS = 300;
-```
+> 📖 **Full configuration options:** See [Configuration Guide](docs/CONFIGURATION.md)
 
 ## 🎮 Usage
 
@@ -342,88 +191,64 @@ export const REFRESH_DEBOUNCE_MS = 300;
 - **Tap after selection**: Add more items to selection
 - **Drag & Drop**: Upload files anywhere on the page
 
-### Search & Sort
-
-1. **Quick Search** (Current Folder):
-   - Type in the search box
-   - Results appear after 1-second debounce
-   - Searches files and folders in current directory only
-   - Case-insensitive partial matching
-
-2. **Deep Search** (Recursive):
-   - Click "🔍 Search Subfolders" button
-   - Searches all files and folders recursively
-   - Shows full path for each result
-   - Click breadcrumb paths to navigate to parent folders
-   - Click file/folder names to open in new tab
-
-3. **Sorting**:
-   - Choose from dropdown: Name (A-Z/Z-A), Date (Newest/Oldest), Size (Largest/Smallest)
-   - All sorting happens in browser (no server calls)
-   - Folders always appear before files
-   - Sort preference saved in browser
-
-4. **Search + Sort**:
-   - Sorting works on search results
-   - Search persists during auto-refresh
-   - Search clears when navigating to different folders
-
-5. **Multi-Select in Search**:
-   - Works in both quick and deep search results
-   - `Ctrl/Cmd + A` selects all search results
-   - Delete and Rename operations available
-   - Move disabled in deep search (items in different folders)
-
 ### File Operations
 
-1. **Upload Files & Folders**:
-   - Click the `+` button (FAB) to select files or folders
-   - Drag and drop files or folders anywhere
-   - Use `Ctrl/Cmd + U` shortcut
-   - Upload disabled during search (clear search first)
+1. **Upload**: Click `+` button, drag & drop, or use `Ctrl/Cmd + U`
+2. **Navigate**: Click folders or use breadcrumbs
+3. **Search**: Use search box for current folder or click "Search Subfolders" for deep search
+4. **Sort**: Choose from dropdown (Name, Date, Size)
+5. **Multi-Select**: `Ctrl/Cmd + Click` or use "Select All"
+6. **Batch Operations**: Select multiple items, then use action buttons
 
-2. **Create Folder**:
-   - Click "New Folder" button
-   - Enter folder name
-   - Folder appears in current directory
-   - Disabled during search
+## 🏗️ Architecture
 
-3. **Navigate**:
-   - Click folders to open
-   - Use breadcrumbs to jump to parent folders
-   - Click "Up" button to go to parent
+NanoCloud follows modern software architecture principles with clean separation of concerns:
 
-4. **Multi-Select**:
-   - `Ctrl/Cmd + Click` to select multiple items
-   - Use "Select All" button
-   - Press & hold on touch devices
-   - Works in normal view and search results
+### Backend Architecture
 
-5. **Batch Operations**:
-   - Select multiple items
-   - Use selection bar buttons:
-     - Rename (single item only)
-     - Move to another folder (disabled in deep search)
-     - Delete selected items
+**Request Flow:**
+```
+Browser → public/api.php → Security Layer → Service Layer → Response
+```
 
-## 🔒 Security
+**Key Components:**
 
-- **Path Traversal Protection**: All paths validated against storage root
-- **Input Sanitization**: Filenames and paths sanitized
-- **MIME Type Detection**: Proper content-type headers
-- **Session Management**: Upload limits per session
-- **Hidden Files**: Dot-prefixed files/folders hidden from listings
-- **Transactional Uploads**: Rollback on client disconnect
+- **Core Layer**: Configuration, Request/Response handling
+- **Security Layer**: Path validation, input sanitization
+- **Service Layer**: Business logic (Directory, File, Upload, Storage services)
+- **Helpers**: Shared utility functions
 
-## 🚀 Performance Optimizations
+**Features:**
+- Strict OOP with PSR-12 standards
+- Type safety throughout
+- Zero external dependencies
+- Custom PSR-4 autoloader
 
-- **Concurrent Uploads**: Multiple files uploaded in parallel
-- **Debounced Refresh**: Prevents excessive API calls
-- **Request Tracking**: Prevents duplicate refresh operations
-- **Lazy Loading**: Components loaded as needed
-- **CSS Variables**: Efficient styling with custom properties
-- **Rate Limiting**: Configurable download speed limits
-- **Session Write Close**: Non-blocking concurrent requests
+### Frontend Architecture
+
+- **Modular ES6 JavaScript**: Clear separation of concerns
+- **State Management**: Reactive updates
+- **Component-Based UI**: Reusable components
+- **Event-Driven**: Efficient event handling
+
+### Styling
+
+- **Modular CSS**: Variables, base, layout, components, utilities, responsive
+- **Mobile-First**: Responsive design
+- **CSS Custom Properties**: Easy theming
+
+> 📖 **Technical details:** See [Architecture Guide](docs/ARCHITECTURE.md)
+
+## 📚 Documentation
+
+- **[Quick Start Guide](docs/QUICK_START.md)** - Fast installation and setup
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration options
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - Technical architecture details
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment
+- **[Development Guide](docs/DEVELOPMENT.md)** - Extending and customizing
+- **[Update System](docs/UPDATES.md)** - Self-update documentation
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Web Root Setup](docs/WEBROOT_COMPATIBILITY.md)** - Web server configuration
 
 ## 📱 Browser Support
 
@@ -432,44 +257,52 @@ export const REFRESH_DEBOUNCE_MS = 300;
 - Safari 14+
 - Mobile browsers (iOS Safari, Chrome Mobile)
 
-## 🐛 Troubleshooting
+## 🤝 Contributing
 
-### Upload Fails
+Contributions are welcome! Here's how you can help:
 
-1. Check PHP settings in `php.ini`:
-   - `upload_max_filesize` >= file size
-   - `post_max_size` >= `upload_max_filesize`
-   - `max_file_uploads` sufficient
+1. **Report Bugs**: Open an issue with details
+2. **Suggest Features**: Share your ideas
+3. **Submit Pull Requests**: Fork, create a branch, and submit a PR
+4. **Improve Documentation**: Help make docs clearer
 
-2. Verify storage directory permissions:
-   ```bash
-   ls -la /path/to/storage
-   ```
-
-3. Check PHP error logs:
-   ```bash
-   tail -f /var/log/php-fpm/error.log
-   ```
-
-### Permission Errors
-
-- Verify web server user has write access:
-  ```bash
-  sudo chown -R www-data:www-data /path/to/storage
-  sudo chmod -R 755 /path/to/storage
-  ```
+Please follow the existing code style and include tests where applicable.
 
 ## 📄 License
 
 MIT License - Feel free to use and modify for your needs.
 
-## 🤝 Contributing
+```
+Copyright (c) 2024 Souvik Ranju
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## 📧 Support
 
-For issues and questions, please open an issue on GitHub.
+- **Issues**: [GitHub Issues](https://github.com/souvikranju/nanocloud/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/souvikranju/nanocloud/discussions)
+- **Documentation**: [docs/](docs/)
+
+## 🙏 Acknowledgments
+
+Built with ❤️ for the self-hosting community.
 
 ---
 
