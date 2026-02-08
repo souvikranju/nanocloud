@@ -1501,7 +1501,49 @@ body.drag-active::after {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   vertical-align: middle;
-  margin-right: var(--space-1);
+  margin-right: var(--space-2);
+}
+
+/* ===== SEARCH PROGRESS BANNER ===== */
+.search-progress-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--primary-600);
+  color: white;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-sticky);
+  transform: translateY(-100%);
+  transition: transform var(--transition-normal);
+}
+
+.search-progress-banner:not(.hidden) {
+  transform: translateY(0);
+}
+
+.search-progress-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+#cancelSearchBtn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+#cancelSearchBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* ===== MODAL DIVIDER ===== */

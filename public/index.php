@@ -164,7 +164,19 @@
                     </label>
                 </div>
             </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="performSearchBtn">Search</button>
+            </div>
         </div>
+    </div>
+
+    <!-- Search Progress Banner -->
+    <div id="searchProgressBanner" class="search-progress-banner hidden">
+        <div class="search-progress-content">
+            <div class="loading-spinner-inline"></div>
+            <span id="searchProgressText">Searching... (0 items found)</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="cancelSearchBtn">Cancel</button>
     </div>
 
     <!-- View Options Modal -->

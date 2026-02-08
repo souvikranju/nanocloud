@@ -1,6 +1,6 @@
 // ui/filterSort.js
 // Client-side filtering and sorting for file lists
-// Supports both quick search (current folder) and deep search (recursive)
+// Supports both quick search (current folder) and deep search (recursive with streaming results)
 
 import { list as apiList } from '../nanocloudClient.js';
 import { getCurrentPath } from '../state.js';
@@ -16,11 +16,13 @@ let currentSearchQuery = '';
 let searchMode = 'quick'; // 'quick' or 'deep'
 let deepSearchResults = [];
 let searchInProgress = false;
+let abortController = null;
 
 // DOM References
 let searchInput = null;
 let clearSearchBtn = null;
 let deepSearchCheckbox = null;
+let performSearchBtn = null;
 let gridViewBtn = null;
 let listViewBtn = null;
 
@@ -34,6 +36,7 @@ export function initFilterSort(refs) {
   deepSearchCheckbox = refs.deepSearchCheckbox || null;
   gridViewBtn = refs.gridViewBtn || null;
   listViewBtn = refs.listViewBtn || null;
+  performSearchBtn = document.getElementById('performSearchBtn');
   
   // Load saved sort preference
   loadSortPreference();
@@ -46,6 +49,9 @@ export function initFilterSort(refs) {
   
   // Setup view mode handlers
   setupViewModeHandlers();
+  
+  // Setup cancel search handler
+  setupCancelSearchHandler();
 }
 
 /**
@@ -71,28 +77,23 @@ function saveSortPreference(mode) {
  * Setup event handlers for search controls
  */
 function setupEventHandlers() {
-  // Search input with debounce
-  let searchTimeout = null;
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.trim();
-      
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
+  // Search button click
+  if (performSearchBtn) {
+    performSearchBtn.addEventListener('click', () => {
+      const query = searchInput ? searchInput.value.trim() : '';
+      if (query) {
         handleSearch(query);
-      }, 300);
+      }
     });
-    
-    // Handle Enter key for immediate search and close modal
+  }
+  
+  // Enter key to trigger search
+  if (searchInput) {
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        clearTimeout(searchTimeout);
         const query = searchInput.value.trim();
-        handleSearch(query);
-        
-        // Close the search modal
-        if (window.hideSearchModal) {
-          window.hideSearchModal();
+        if (query) {
+          handleSearch(query);
         }
       }
     });
@@ -115,14 +116,16 @@ function setupEventHandlers() {
       }
     });
   }
-  
-  // Deep search checkbox - re-run search when toggled
-  if (deepSearchCheckbox) {
-    deepSearchCheckbox.addEventListener('change', () => {
-      // If there's an active search query, re-run the search
-      if (searchInput && searchInput.value.trim()) {
-        handleSearch(searchInput.value.trim());
-      }
+}
+
+/**
+ * Setup cancel search handler
+ */
+function setupCancelSearchHandler() {
+  const cancelBtn = document.getElementById('cancelSearchBtn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      cancelSearch();
     });
   }
 }
@@ -154,8 +157,16 @@ async function handleSearch(query) {
   if (isDeepSearch) {
     await performDeepSearch(query);
   } else {
+    // Quick search - just filter current folder
     searchMode = 'quick';
     deepSearchResults = [];
+    
+    // Close modal
+    if (window.hideSearchModal) {
+      window.hideSearchModal();
+    }
+    
+    // Trigger re-render
     if (window.filterSortCallback) {
       window.filterSortCallback();
     }
@@ -163,7 +174,7 @@ async function handleSearch(query) {
 }
 
 /**
- * Perform deep search (recursive)
+ * Perform deep search with streaming results
  * @param {string} query
  */
 async function performDeepSearch(query) {
@@ -178,39 +189,81 @@ async function performDeepSearch(query) {
   
   searchInProgress = true;
   searchMode = 'deep';
+  deepSearchResults = [];
+  
+  // Close search modal
+  if (window.hideSearchModal) {
+    window.hideSearchModal();
+  }
+  
+  // Show progress banner
+  showSearchProgress(0);
+  
+  // Create abort controller for cancellation
+  abortController = new AbortController();
   
   try {
-    const results = await recursiveSearch(getCurrentPath(), query);
-    deepSearchResults = results;
+    await recursiveSearchWithStreaming(
+      getCurrentPath(),
+      query,
+      (newResults) => {
+        // Callback: Update results progressively
+        deepSearchResults.push(...newResults);
+        updateSearchProgress(deepSearchResults.length);
+        
+        // Trigger re-render with current results
+        if (window.filterSortCallback) {
+          window.filterSortCallback();
+        }
+      },
+      abortController.signal
+    );
     
-    // Trigger re-render with deep search results
-    if (window.filterSortCallback) {
-      window.filterSortCallback();
-    }
-    
+    // Search completed
     if (window.showInfo) {
-      window.showInfo(`Found ${results.length} items matching "${query}"`);
+      window.showInfo(`Search complete: Found ${deepSearchResults.length} items matching "${query}"`);
     }
   } catch (error) {
-    console.error('Deep search failed:', error);
-    if (window.showError) {
-      window.showError('Search failed: ' + error.message);
+    if (error.name === 'AbortError') {
+      if (window.showInfo) {
+        window.showInfo(`Search canceled: Found ${deepSearchResults.length} items before cancellation`);
+      }
+    } else {
+      console.error('Deep search failed:', error);
+      if (window.showError) {
+        window.showError('Search failed: ' + error.message);
+      }
     }
   } finally {
     searchInProgress = false;
+    hideSearchProgress();
+    abortController = null;
   }
 }
 
 /**
- * Recursive search through directory tree
+ * Recursive search with streaming callback
  * @param {string} path - Starting path
  * @param {string} query - Search query
+ * @param {Function} onResultsFound - Callback when results are found
+ * @param {AbortSignal} abortSignal - Signal for cancellation
  * @param {number} maxDepth - Maximum recursion depth
  * @param {number} currentDepth - Current recursion depth
- * @returns {Promise<Array>} - Array of matching items with path info
  */
-async function recursiveSearch(path, query, maxDepth = MAX_SEARCH_DEPTH, currentDepth = 0) {
-  if (currentDepth >= maxDepth) return [];
+async function recursiveSearchWithStreaming(
+  path,
+  query,
+  onResultsFound,
+  abortSignal,
+  maxDepth = MAX_SEARCH_DEPTH,
+  currentDepth = 0
+) {
+  // Check if search was canceled
+  if (abortSignal.aborted) {
+    throw new DOMException('Search canceled', 'AbortError');
+  }
+  
+  if (currentDepth >= maxDepth) return;
   
   const queryLower = query.toLowerCase();
   
@@ -218,16 +271,17 @@ async function recursiveSearch(path, query, maxDepth = MAX_SEARCH_DEPTH, current
     const response = await apiList(path);
     
     if (!response.success || !response.items) {
-      return [];
+      return;
     }
     
-    const results = [];
-    const subfolderPromises = [];
+    const matches = [];
+    const subfolders = [];
     
+    // Process items
     for (const item of response.items) {
       // Check if item matches query
       if (item.name.toLowerCase().includes(queryLower)) {
-        results.push({
+        matches.push({
           ...item,
           fullPath: path ? `${path}/${item.name}` : item.name,
           displayPath: path || '',
@@ -235,23 +289,80 @@ async function recursiveSearch(path, query, maxDepth = MAX_SEARCH_DEPTH, current
         });
       }
       
-      // Queue subfolder searches
+      // Collect subfolders for recursive search
       if (item.type === 'dir') {
-        const subPath = path ? `${path}/${item.name}` : item.name;
-        subfolderPromises.push(
-          recursiveSearch(subPath, query, maxDepth, currentDepth + 1)
-        );
+        subfolders.push(item.name);
       }
     }
     
-    // Execute subfolder searches in parallel
-    const subResults = await Promise.all(subfolderPromises);
-    results.push(...subResults.flat());
+    // Stream results immediately if found
+    if (matches.length > 0) {
+      onResultsFound(matches);
+    }
     
-    return results;
+    // Continue searching subfolders
+    for (const folderName of subfolders) {
+      if (abortSignal.aborted) {
+        throw new DOMException('Search canceled', 'AbortError');
+      }
+      
+      const subPath = path ? `${path}/${folderName}` : folderName;
+      await recursiveSearchWithStreaming(
+        subPath,
+        query,
+        onResultsFound,
+        abortSignal,
+        maxDepth,
+        currentDepth + 1
+      );
+    }
   } catch (error) {
+    if (error.name === 'AbortError') {
+      throw error;
+    }
     console.warn(`Failed to search path "${path}":`, error);
-    return [];
+  }
+}
+
+/**
+ * Show search progress banner
+ * @param {number} count - Number of items found
+ */
+function showSearchProgress(count) {
+  const banner = document.getElementById('searchProgressBanner');
+  if (banner) {
+    banner.classList.remove('hidden');
+    updateSearchProgress(count);
+  }
+}
+
+/**
+ * Update search progress count
+ * @param {number} count - Number of items found
+ */
+function updateSearchProgress(count) {
+  const text = document.getElementById('searchProgressText');
+  if (text) {
+    text.textContent = `Searching... (${count} items found)`;
+  }
+}
+
+/**
+ * Hide search progress banner
+ */
+function hideSearchProgress() {
+  const banner = document.getElementById('searchProgressBanner');
+  if (banner) {
+    banner.classList.add('hidden');
+  }
+}
+
+/**
+ * Cancel ongoing search
+ */
+function cancelSearch() {
+  if (abortController) {
+    abortController.abort();
   }
 }
 
@@ -485,9 +596,16 @@ export function isSearchActive() {
  * Reset search state
  */
 export function resetSearch() {
+  // Cancel any ongoing search
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+  
   currentSearchQuery = '';
   searchMode = 'quick';
   deepSearchResults = [];
+  searchInProgress = false;
   
   if (searchInput) {
     searchInput.value = '';
@@ -500,4 +618,6 @@ export function resetSearch() {
   if (deepSearchCheckbox) {
     deepSearchCheckbox.checked = false;
   }
+  
+  hideSearchProgress();
 }
