@@ -50,44 +50,15 @@
             <!-- File List Controls (Top Section) -->
             <div class="file-list-controls-section">
                 <div class="file-list-controls">
-                    <!-- Search Container -->
-                    <div class="search-container">
-                        <input type="text" id="searchInput" class="search-input" placeholder="Search in current folder..." />
-                        <button id="clearSearchBtn" class="btn-icon hidden" title="Clear search">×</button>
-                        <button id="deepSearchBtn" class="btn btn-secondary" title="Search in all subfolders">
-                            🔍 Search Subfolders
-                        </button>
-                    </div>
-                    
-                    <!-- Sort Container -->
-                    <div class="sort-container">
-                        <label for="sortSelect" class="sort-label">Sort:</label>
-                        <select id="sortSelect" class="sort-select">
-                            <option value="name-asc">Name (A-Z)</option>
-                            <option value="name-desc">Name (Z-A)</option>
-                            <option value="date-desc">Date Modified (Newest First)</option>
-                            <option value="date-asc">Date Modified (Oldest First)</option>
-                            <option value="size-desc">Size (Largest First)</option>
-                            <option value="size-asc">Size (Smallest First)</option>
-                        </select>
-                    </div>
-                    
-                    <!-- View Toggle -->
-                    <div class="view-toggle">
-                        <button class="view-toggle-btn" id="gridViewBtn" title="Grid View">
-                            <span>⊞</span>
-                        </button>
-                        <button class="view-toggle-btn active" id="listViewBtn" title="List View">
-                            <span>☰</span>
-                        </button>
-                    </div>
-                    
-                    <!-- Action Buttons -->
+                    <!-- Icon-based Action Buttons -->
+                    <button class="btn-icon-action" id="searchTriggerBtn" title="Search">
+                        <span>🔍</span>
+                    </button>
+                    <button class="btn-icon-action" id="viewOptionsTriggerBtn" title="View & Sort Options">
+                        <span>⚙️</span>
+                    </button>
                     <button class="btn btn-secondary" id="upBtn" title="Go Up">
                         <span>↑</span> Up
-                    </button>
-                    <button class="btn btn-primary" id="newFolderBtn" title="Create New Folder">
-                        <span>+</span> New Folder
                     </button>
                     <button class="btn btn-secondary" id="refreshBtn" title="Refresh">
                         <span class="refresh-label">↻ Refresh</span>
@@ -161,16 +132,93 @@
                 <button class="btn btn-secondary" id="modalClose">Close</button>
             </div>
             <div class="modal-body">
-                <div id="modalMessages" class="messages"></div>
-                
-                <div class="file-input-wrapper">
-                    <input type="file" id="modalFileInput" class="file-input" multiple webkitdirectory directory>
-                </div>
-                
                 <div class="drop-area" id="modalDropArea">
                     <div class="drop-area-icon">📁</div>
                     <div class="drop-area-text">Drag & drop files or folders here</div>
                     <div class="drop-area-subtext">or click to browse</div>
+                </div>
+                
+                <button class="btn btn-primary" id="newFolderBtn" title="Create New Folder" style="margin-top: var(--space-4);">
+                    <span>+</span> New Folder
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="searchModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">🔍 Search</h2>
+                <button class="btn btn-secondary" id="searchModalClose">Close</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-modal-input-group">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search files and folders..." />
+                    <button id="clearSearchBtn" class="btn-icon hidden" title="Clear search">×</button>
+                </div>
+                <div class="search-modal-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="deepSearchCheckbox">
+                        <span>Deep Search (search in all subfolders)</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Options Modal -->
+    <div id="viewOptionsModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">⚙️ View & Sort Options</h2>
+                <button class="btn btn-secondary" id="viewOptionsModalClose">Close</button>
+            </div>
+            <div class="modal-body">
+                <!-- View Mode Section -->
+                <div class="options-section">
+                    <h3 class="options-section-title">View Mode</h3>
+                    <div class="view-mode-buttons">
+                        <button class="view-mode-btn" id="gridViewBtn" data-view="grid" title="Grid View">
+                            <span class="view-icon">⊞</span>
+                            <span class="view-label">Grid</span>
+                        </button>
+                        <button class="view-mode-btn active" id="listViewBtn" data-view="list" title="List View">
+                            <span class="view-icon">☰</span>
+                            <span class="view-label">List</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sorting Section -->
+                <div class="options-section">
+                    <h3 class="options-section-title">Sorting</h3>
+                    <div class="sort-options-grid">
+                        <button class="sort-option-btn active" data-sort="name-asc" title="Name (A-Z)">
+                            <span class="sort-icon">🔤</span>
+                            <span class="sort-label">Name (A-Z)</span>
+                        </button>
+                        <button class="sort-option-btn" data-sort="name-desc" title="Name (Z-A)">
+                            <span class="sort-icon">🔤</span>
+                            <span class="sort-label">Name (Z-A)</span>
+                        </button>
+                        <button class="sort-option-btn" data-sort="date-desc" title="Date (Newest First)">
+                            <span class="sort-icon">📅</span>
+                            <span class="sort-label">Date (Newest)</span>
+                        </button>
+                        <button class="sort-option-btn" data-sort="date-asc" title="Date (Oldest First)">
+                            <span class="sort-icon">📅</span>
+                            <span class="sort-label">Date (Oldest)</span>
+                        </button>
+                        <button class="sort-option-btn" data-sort="size-desc" title="Size (Largest First)">
+                            <span class="sort-icon">📊</span>
+                            <span class="sort-label">Size (Largest)</span>
+                        </button>
+                        <button class="sort-option-btn" data-sort="size-asc" title="Size (Smallest First)">
+                            <span class="sort-icon">📊</span>
+                            <span class="sort-label">Size (Smallest)</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

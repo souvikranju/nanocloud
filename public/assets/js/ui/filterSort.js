@@ -20,8 +20,9 @@ let searchInProgress = false;
 // DOM References
 let searchInput = null;
 let clearSearchBtn = null;
-let deepSearchBtn = null;
-let sortSelect = null;
+let deepSearchCheckbox = null;
+let gridViewBtn = null;
+let listViewBtn = null;
 
 /**
  * Initialize filter and sort module
@@ -30,14 +31,21 @@ let sortSelect = null;
 export function initFilterSort(refs) {
   searchInput = refs.searchInput || null;
   clearSearchBtn = refs.clearSearchBtn || null;
-  deepSearchBtn = refs.deepSearchBtn || null;
-  sortSelect = refs.sortSelect || null;
+  deepSearchCheckbox = refs.deepSearchCheckbox || null;
+  gridViewBtn = refs.gridViewBtn || null;
+  listViewBtn = refs.listViewBtn || null;
   
   // Load saved sort preference
   loadSortPreference();
   
   // Setup event handlers
   setupEventHandlers();
+  
+  // Setup sort button handlers
+  setupSortButtonHandlers();
+  
+  // Setup view mode handlers
+  setupViewModeHandlers();
 }
 
 /**
@@ -47,9 +55,7 @@ function loadSortPreference() {
   const saved = localStorage.getItem(SORT_STORAGE_KEY);
   if (saved) {
     currentSortMode = saved;
-    if (sortSelect) {
-      sortSelect.value = saved;
-    }
+    updateSortButtonStates();
   }
 }
 
@@ -62,21 +68,9 @@ function saveSortPreference(mode) {
 }
 
 /**
- * Setup event handlers for search and sort controls
+ * Setup event handlers for search controls
  */
 function setupEventHandlers() {
-  // Sort dropdown change
-  if (sortSelect) {
-    sortSelect.addEventListener('change', (e) => {
-      currentSortMode = e.target.value;
-      saveSortPreference(currentSortMode);
-      // Trigger re-render through callback
-      if (window.filterSortCallback) {
-        window.filterSortCallback();
-      }
-    });
-  }
-  
   // Search input with debounce
   let searchTimeout = null;
   if (searchInput) {
@@ -85,19 +79,22 @@ function setupEventHandlers() {
       
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
-        currentSearchQuery = query;
-        searchMode = 'quick';
+        handleSearch(query);
+      }, 300);
+    });
+    
+    // Handle Enter key for immediate search and close modal
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        clearTimeout(searchTimeout);
+        const query = searchInput.value.trim();
+        handleSearch(query);
         
-        // Show/hide clear button
-        if (clearSearchBtn) {
-          clearSearchBtn.classList.toggle('hidden', !query);
+        // Close the search modal
+        if (window.hideSearchModal) {
+          window.hideSearchModal();
         }
-        
-        // Trigger re-render
-        if (window.filterSortCallback) {
-          window.filterSortCallback();
-        }
-      }, 1000);
+      }
     });
   }
   
@@ -109,6 +106,7 @@ function setupEventHandlers() {
       }
       currentSearchQuery = '';
       searchMode = 'quick';
+      deepSearchResults = [];
       clearSearchBtn.classList.add('hidden');
       
       // Trigger re-render
@@ -118,22 +116,57 @@ function setupEventHandlers() {
     });
   }
   
-  // Deep search button
-  if (deepSearchBtn) {
-    deepSearchBtn.addEventListener('click', async () => {
-      await performDeepSearch();
+  // Deep search checkbox - re-run search when toggled
+  if (deepSearchCheckbox) {
+    deepSearchCheckbox.addEventListener('change', () => {
+      // If there's an active search query, re-run the search
+      if (searchInput && searchInput.value.trim()) {
+        handleSearch(searchInput.value.trim());
+      }
     });
   }
 }
 
 /**
- * Perform deep search (recursive)
+ * Handle search query
+ * @param {string} query
  */
-async function performDeepSearch() {
-  if (!searchInput) return;
+async function handleSearch(query) {
+  currentSearchQuery = query;
   
-  const query = searchInput.value.trim();
+  // Show/hide clear button
+  if (clearSearchBtn) {
+    clearSearchBtn.classList.toggle('hidden', !query);
+  }
   
+  if (!query) {
+    searchMode = 'quick';
+    deepSearchResults = [];
+    if (window.filterSortCallback) {
+      window.filterSortCallback();
+    }
+    return;
+  }
+  
+  // Check if deep search is enabled
+  const isDeepSearch = deepSearchCheckbox && deepSearchCheckbox.checked;
+  
+  if (isDeepSearch) {
+    await performDeepSearch(query);
+  } else {
+    searchMode = 'quick';
+    deepSearchResults = [];
+    if (window.filterSortCallback) {
+      window.filterSortCallback();
+    }
+  }
+}
+
+/**
+ * Perform deep search (recursive)
+ * @param {string} query
+ */
+async function performDeepSearch(query) {
   if (!query) {
     if (window.showError) {
       window.showError('Please enter a search term');
@@ -146,16 +179,9 @@ async function performDeepSearch() {
   searchInProgress = true;
   searchMode = 'deep';
   
-  // Update button state
-  if (deepSearchBtn) {
-    deepSearchBtn.disabled = true;
-    deepSearchBtn.innerHTML = '<span class="loading-spinner-inline"></span> Searching...';
-  }
-  
   try {
     const results = await recursiveSearch(getCurrentPath(), query);
     deepSearchResults = results;
-    currentSearchQuery = query;
     
     // Trigger re-render with deep search results
     if (window.filterSortCallback) {
@@ -172,12 +198,6 @@ async function performDeepSearch() {
     }
   } finally {
     searchInProgress = false;
-    
-    // Restore button state
-    if (deepSearchBtn) {
-      deepSearchBtn.disabled = false;
-      deepSearchBtn.innerHTML = '🔍 Search Subfolders';
-    }
   }
 }
 
@@ -324,6 +344,112 @@ export function applySortAndFilter(items) {
 }
 
 /**
+ * Setup sort button handlers
+ */
+function setupSortButtonHandlers() {
+  const sortButtons = document.querySelectorAll('.sort-option-btn');
+  sortButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sortMode = btn.dataset.sort;
+      if (sortMode) {
+        currentSortMode = sortMode;
+        saveSortPreference(sortMode);
+        updateSortButtonStates();
+        
+        // Trigger re-render
+        if (window.filterSortCallback) {
+          window.filterSortCallback();
+        }
+      }
+    });
+  });
+}
+
+/**
+ * Update sort button active states
+ */
+function updateSortButtonStates() {
+  const sortButtons = document.querySelectorAll('.sort-option-btn');
+  sortButtons.forEach(btn => {
+    if (btn.dataset.sort === currentSortMode) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+/**
+ * Setup view mode handlers
+ */
+function setupViewModeHandlers() {
+  if (gridViewBtn) {
+    gridViewBtn.addEventListener('click', () => {
+      setViewMode('grid');
+    });
+  }
+  
+  if (listViewBtn) {
+    listViewBtn.addEventListener('click', () => {
+      setViewMode('list');
+    });
+  }
+}
+
+/**
+ * Set view mode
+ * @param {string} mode - 'grid' or 'list'
+ */
+function setViewMode(mode) {
+  const fileList = document.getElementById('fileList');
+  if (!fileList) return;
+  
+  if (mode === 'grid') {
+    fileList.classList.remove('file-list');
+    fileList.classList.add('file-grid');
+  } else {
+    fileList.classList.remove('file-grid');
+    fileList.classList.add('file-list');
+  }
+  
+  // Update button states in both toolbar and modal
+  updateViewModeButtonStates(mode);
+  
+  // Save preference
+  localStorage.setItem('nanocloud_view_mode', mode);
+  
+  // Trigger re-render
+  if (window.filterSortCallback) {
+    window.filterSortCallback();
+  }
+}
+
+/**
+ * Update view mode button states
+ * @param {string} mode - 'grid' or 'list'
+ */
+function updateViewModeButtonStates(mode) {
+  const allGridBtns = document.querySelectorAll('#gridViewBtn, [data-view="grid"]');
+  const allListBtns = document.querySelectorAll('#listViewBtn, [data-view="list"]');
+  
+  allGridBtns.forEach(btn => {
+    if (mode === 'grid') {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  allListBtns.forEach(btn => {
+    if (mode === 'list') {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+/**
  * Get current sort mode
  * @returns {string}
  */
@@ -369,5 +495,9 @@ export function resetSearch() {
   
   if (clearSearchBtn) {
     clearSearchBtn.classList.add('hidden');
+  }
+  
+  if (deepSearchCheckbox) {
+    deepSearchCheckbox.checked = false;
   }
 }

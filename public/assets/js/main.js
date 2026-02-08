@@ -66,6 +66,19 @@ const DOM = {
   infoBtn: document.getElementById('infoBtn'),
   infoModal: document.getElementById('infoModal'),
   infoModalClose: document.getElementById('infoModalClose'),
+
+  // Search modal
+  searchTriggerBtn: document.getElementById('searchTriggerBtn'),
+  searchModal: document.getElementById('searchModal'),
+  searchModalClose: document.getElementById('searchModalClose'),
+  searchInput: document.getElementById('searchInput'),
+  clearSearchBtn: document.getElementById('clearSearchBtn'),
+  deepSearchCheckbox: document.getElementById('deepSearchCheckbox'),
+
+  // View Options modal
+  viewOptionsTriggerBtn: document.getElementById('viewOptionsTriggerBtn'),
+  viewOptionsModal: document.getElementById('viewOptionsModal'),
+  viewOptionsModalClose: document.getElementById('viewOptionsModalClose'),
 };
 
 // =====================================
@@ -150,31 +163,124 @@ function setupModalEventHandlers() {
     });
   }
 
-  // Modal file input
-  if (DOM.modalFileInput) {
-    DOM.modalFileInput.addEventListener('change', () => {
-      const files = DOM.modalFileInput.files;
-      if (files && files.length > 0) {
-        hideModal();
-        const fileItems = extractFilesFromFileList(files);
-        uploadFiles(fileItems);
-        // Clear the file input so the same file can be selected again
-        DOM.modalFileInput.value = '';
-      }
-    });
-  }
+  // Create hidden file input dynamically
+  const hiddenFileInput = document.createElement('input');
+  hiddenFileInput.type = 'file';
+  hiddenFileInput.multiple = true;
+  hiddenFileInput.webkitdirectory = true;
+  hiddenFileInput.style.display = 'none';
+  document.body.appendChild(hiddenFileInput);
+  
+  // Handle file selection
+  hiddenFileInput.addEventListener('change', () => {
+    const files = hiddenFileInput.files;
+    if (files && files.length > 0) {
+      hideModal();
+      const fileItems = extractFilesFromFileList(files);
+      uploadFiles(fileItems);
+      // Clear the file input so the same file can be selected again
+      hiddenFileInput.value = '';
+    }
+  });
 
-  // Make drop area clickable
+  // Make drop area clickable to trigger file input
   if (DOM.modalDropArea) {
     DOM.modalDropArea.addEventListener('click', () => {
-      if (DOM.modalFileInput) {
-        DOM.modalFileInput.click();
-      }
+      hiddenFileInput.click();
     });
   }
 
   // Info modal handlers
   setupInfoModalHandlers();
+  
+  // Search modal handlers
+  setupSearchModalHandlers();
+  
+  // View Options modal handlers
+  setupViewOptionsModalHandlers();
+}
+
+// =====================================
+// EVENT HANDLERS - SEARCH MODAL
+// =====================================
+function showSearchModal() {
+  if (DOM.searchModal) {
+    DOM.searchModal.classList.remove(MODAL_HIDDEN_CLASS);
+    DOM.searchModal.setAttribute(MODAL_ARIA_HIDDEN, 'false');
+    // Focus the search input
+    if (DOM.searchInput) {
+      setTimeout(() => DOM.searchInput.focus(), 100);
+    }
+  }
+}
+
+function hideSearchModal() {
+  if (DOM.searchModal) {
+    DOM.searchModal.classList.add(MODAL_HIDDEN_CLASS);
+    DOM.searchModal.setAttribute(MODAL_ARIA_HIDDEN, 'true');
+  }
+}
+
+// Expose hideSearchModal globally for filterSort module
+window.hideSearchModal = hideSearchModal;
+
+function setupSearchModalHandlers() {
+  // Search trigger button
+  if (DOM.searchTriggerBtn) {
+    DOM.searchTriggerBtn.addEventListener('click', showSearchModal);
+  }
+
+  // Search modal close button
+  if (DOM.searchModalClose) {
+    DOM.searchModalClose.addEventListener('click', hideSearchModal);
+  }
+
+  // Close search modal when clicking outside
+  if (DOM.searchModal) {
+    DOM.searchModal.addEventListener('click', (e) => {
+      if (e.target === DOM.searchModal) {
+        hideSearchModal();
+      }
+    });
+  }
+}
+
+// =====================================
+// EVENT HANDLERS - VIEW OPTIONS MODAL
+// =====================================
+function showViewOptionsModal() {
+  if (DOM.viewOptionsModal) {
+    DOM.viewOptionsModal.classList.remove(MODAL_HIDDEN_CLASS);
+    DOM.viewOptionsModal.setAttribute(MODAL_ARIA_HIDDEN, 'false');
+  }
+}
+
+function hideViewOptionsModal() {
+  if (DOM.viewOptionsModal) {
+    DOM.viewOptionsModal.classList.add(MODAL_HIDDEN_CLASS);
+    DOM.viewOptionsModal.setAttribute(MODAL_ARIA_HIDDEN, 'true');
+  }
+}
+
+function setupViewOptionsModalHandlers() {
+  // View Options trigger button
+  if (DOM.viewOptionsTriggerBtn) {
+    DOM.viewOptionsTriggerBtn.addEventListener('click', showViewOptionsModal);
+  }
+
+  // View Options modal close button
+  if (DOM.viewOptionsModalClose) {
+    DOM.viewOptionsModalClose.addEventListener('click', hideViewOptionsModal);
+  }
+
+  // Close view options modal when clicking outside
+  if (DOM.viewOptionsModal) {
+    DOM.viewOptionsModal.addEventListener('click', (e) => {
+      if (e.target === DOM.viewOptionsModal) {
+        hideViewOptionsModal();
+      }
+    });
+  }
 }
 
 // =====================================
@@ -326,6 +432,9 @@ async function handleCreateFolder() {
     showError(check.reason);
     return;
   }
+
+  // Close the upload modal if it's open
+  hideModal();
 
   const name = prompt('New folder name:');
   if (name == null) return;
@@ -592,6 +701,8 @@ function setupGlobalEventHandlers() {
     if (e.key === KEYBOARD_SHORTCUTS.ESCAPE) {
       hideModal();
       hideInfoModal();
+      hideSearchModal();
+      hideViewOptionsModal();
     }
   });
 
