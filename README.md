@@ -59,6 +59,7 @@ Designed to solve the "How do I send you these photos?" problem.
 - **🎬 Media Streaming**: Stream videos, audio, and view images directly in browser
 - **📦 Drag & Drop**: Upload files and folders by dragging them anywhere on the page
 - **🔄 Self-Update**: Built-in update system to keep your installation current
+- **♻️ Resumable Uploads**: Chunked uploads with cross-device resume capability for unlimited file sizes
 
 ## 📋 Requirements
 
@@ -148,16 +149,16 @@ NanoCloud uses a flexible configuration system. Create `config/local.php` to cus
 // Storage location
 $STORAGE_ROOT = '/path/to/storage';
 
-// Upload limits
-$USER_DEFINED_MAX_FILE_SIZE = 5368709120; // 5GB
-$MAX_SESSION_BYTES = 5368709120; // 5GB
-
 // Download rate limiting
 $DOWNLOAD_RATE_LIMIT_MB = 10; // MB/s (0 = unlimited)
 
 // File permissions
 $DIR_PERMISSIONS = 0755;
 $FILE_PERMISSIONS = 0644;
+
+// Chunked upload configuration
+$CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
+$CHUNK_STALE_HOURS = 2; // Hours to keep incomplete uploads
 
 // Operation control
 $READ_ONLY = false;
@@ -166,6 +167,20 @@ $DELETE_ENABLED = true;
 $RENAME_ENABLED = true;
 $MOVE_ENABLED = true;
 ```
+
+### Chunked Uploads
+
+NanoCloud automatically uses chunked uploads for files larger than 2MB, enabling:
+- **Unlimited file sizes** (bypasses PHP upload limits)
+- **Resumable uploads** across devices and sessions
+- **Automatic retry** on network failures
+- **Cross-device resume** - start on desktop, continue on mobile
+
+**Configuration:**
+- `CHUNK_TEMP_DIR`: Where to store temporary chunks (default: system temp)
+- `CHUNK_STALE_HOURS`: Hours to keep incomplete uploads (default: 2)
+
+> 📖 **Chunked upload details:** See [Chunked Upload Guide](docs/CHUNKED_UPLOAD.md)
 
 > 📖 **Full configuration options:** See [Configuration Guide](docs/CONFIGURATION.md)
 

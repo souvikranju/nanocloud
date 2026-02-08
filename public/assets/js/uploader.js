@@ -3,12 +3,12 @@
 // Validates files, shows a progress panel, uploads with limited concurrency,
 // updates UI on completion, and refreshes the listing.
 
-import { MAX_CONCURRENT_UPLOADS, UPLOAD_PROGRESS_AUTO_HIDE_MS } from './constants.js';
-import { getCurrentPath, getMaxFileBytes, hasExistingName, markExistingName, requestRefresh } from './state.js';
-import { sanitizeFilename, formatBytes, sanitizeSegment } from './utils.js';
+import { MAX_CONCURRENT_UPLOADS, UPLOAD_PROGRESS_AUTO_HIDE_MS, CHUNK_SIZE, CHUNKED_UPLOAD_THRESHOLD } from './constants.js';
+import { getCurrentPath, hasExistingName, markExistingName, requestRefresh } from './state.js';
+import { sanitizeFilename, sanitizeSegment } from './utils.js';
 import { showError, showInfo } from './ui/toast.js';
 import { showPanel, hidePanel, hideModal, hideFab, showFab, clearAll, createItem } from './ui/progress.js';
-import { uploadSingle } from './nanocloudClient.js';
+import { uploadSingle, uploadChunked } from './nanocloudClient.js';
 
 /**
  * Sanitize a relative path by sanitizing each segment.
@@ -42,25 +42,17 @@ function sanitizeRelativePath(relativePath) {
 }
 
 /**
- * Validate files with relative paths against size limits and duplicates.
+ * Validate files with relative paths against duplicates.
  * @param {Array<{file: File, relativePath: string}>} fileItems
  * @returns {{selected: Array<{file: File, relativePath: string, sanitizedPath: string}>, invalidFiles: Array<{file: File, relativePath: string, error: string}>}}
  */
 function validateFiles(fileItems) {
-  const maxBytes = getMaxFileBytes();
   const selected = [];
   const invalidFiles = [];
   
   for (const { file, relativePath } of fileItems) {
     const sanitizedPath = sanitizeRelativePath(relativePath);
     const pathSegments = sanitizedPath.split('/');
-    
-    // Server limit (if known)
-    if (maxBytes != null && file.size > maxBytes) {
-      const error = `Skipped "${relativePath}": exceeds server limit of ${formatBytes(maxBytes)}.`;
-      invalidFiles.push({ file, relativePath, error });
-      continue;
-    }
     
     // Client-side duplicate check - only check top-level items in current directory
     const topLevelName = pathSegments[0];
@@ -124,7 +116,27 @@ export async function uploadFiles(fileItems, concurrency = MAX_CONCURRENT_UPLOAD
       const ui = uiMap.get(sanitizedPath);
 
       try {
-        const res = await uploadSingle(file, getCurrentPath(), sanitizedPath, pct => ui.setProgress(pct));
+        let res;
+        
+        // Use chunked upload for large files
+        if (file.size > CHUNKED_UPLOAD_THRESHOLD) {
+          res = await uploadChunked(
+            file,
+            getCurrentPath(),
+            sanitizedPath,
+            CHUNK_SIZE,
+            pct => ui.setProgress(pct)
+          );
+        } else {
+          // Use standard upload for small files
+          res = await uploadSingle(
+            file,
+            getCurrentPath(),
+            sanitizedPath,
+            pct => ui.setProgress(pct)
+          );
+        }
+        
         if (res && res.success) {
           ui.markComplete();
           // Mark top-level name as existing for duplicate checking

@@ -196,3 +196,212 @@ export function uploadSingle(file, path, relativePath, onProgress) {
     xhr.send(formData);
   });
 }
+
+/**
+ * Generate a deterministic upload ID based on file properties
+ * Simple string hash that works in all contexts (HTTP/HTTPS)
+ * @param {File} file - The file object
+ * @param {string} relativePath - Relative path for the file
+ * @param {string} targetPath - Target directory path
+ * @returns {string} - Deterministic upload ID
+ */
+function generateUploadId(file, relativePath, targetPath) {
+  // Create a string from file metadata
+  const metadata = `${file.name}-${file.size}-${file.lastModified}-${targetPath}-${relativePath}`;
+  
+  // Simple hash function (similar to Java's hashCode)
+  let hash = 0;
+  for (let i = 0; i < metadata.length; i++) {
+    const char = metadata.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Convert to positive hex string with padding
+  const hashHex = (hash >>> 0).toString(16).padStart(8, '0');
+  
+  // Return deterministic hash (same file = same ID)
+  return hashHex;
+}
+
+/**
+ * Check upload status for resumability
+ * @param {string} uploadId - Upload identifier
+ * @returns {Promise<{success:boolean, exists:boolean, nextChunkIndex:number}>}
+ */
+export function checkUploadStatus(uploadId) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    
+    formData.append('action', 'upload_check');
+    formData.append('uploadId', uploadId);
+    
+    xhr.open('POST', API_URL);
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (e) {
+          reject(new Error('Invalid JSON response'));
+        }
+      } else {
+        reject(new Error(`HTTP ${xhr.status}`));
+      }
+    };
+    
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(formData);
+  });
+}
+
+/**
+ * Upload a single chunk of a file
+ * @param {Blob} chunk - The chunk data
+ * @param {string} uploadId - Unique upload identifier
+ * @param {number} chunkIndex - Current chunk index
+ * @param {number} totalChunks - Total number of chunks
+ * @param {string} filename - Original filename
+ * @param {string} relativePath - Relative path for folder uploads
+ * @param {string} path - Target directory path
+ * @returns {Promise<{success:boolean, message:string}>}
+ */
+function uploadChunk(chunk, uploadId, chunkIndex, totalChunks, filename, relativePath, path) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    
+    formData.append('action', 'upload_chunk');
+    formData.append('uploadId', uploadId);
+    formData.append('chunkIndex', chunkIndex.toString());
+    formData.append('totalChunks', totalChunks.toString());
+    formData.append('filename', filename);
+    formData.append('relativePath', relativePath);
+    formData.append('path', path);
+    formData.append('chunk', chunk);
+    
+    xhr.open('POST', API_URL);
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (e) {
+          reject(new Error('Invalid JSON response'));
+        }
+      } else {
+        reject(new Error(`HTTP ${xhr.status}`));
+      }
+    };
+    
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(formData);
+  });
+}
+
+/**
+ * Upload a file using chunked upload (for large files)
+ * @param {File} file
+ * @param {string} path - Current directory path
+ * @param {string} relativePath - Relative path for the file
+ * @param {number} chunkSize - Size of each chunk in bytes
+ * @param {(pct:number)=>void} [onProgress]
+ * @returns {Promise<{success:boolean, filename:string, message?:string}>}
+ */
+export function uploadChunked(file, path, relativePath, chunkSize, onProgress) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Generate deterministic upload ID based on file properties
+      const uploadId = await generateUploadId(file, relativePath, path);
+      
+      // Calculate total chunks
+      const totalChunks = Math.ceil(file.size / chunkSize);
+      
+      // Check if upload can be resumed
+      let startChunkIndex = 0;
+      try {
+        const status = await checkUploadStatus(uploadId);
+        if (status.success && status.exists) {
+          startChunkIndex = status.nextChunkIndex || 0;
+          console.log(`Resuming upload from chunk ${startChunkIndex} of ${totalChunks}`);
+          
+          // Update progress to reflect already uploaded chunks
+          if (typeof onProgress === 'function' && startChunkIndex > 0) {
+            const progress = (startChunkIndex / totalChunks) * 100;
+            onProgress(progress);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to check upload status, starting from beginning:', err);
+        // Continue with startChunkIndex = 0
+      }
+      
+      // Upload chunks sequentially starting from the resume point
+      for (let chunkIndex = startChunkIndex; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
+        
+        // Retry logic for each chunk
+        let retries = 3;
+        let success = false;
+        let lastError = null;
+        
+        while (retries > 0 && !success) {
+          try {
+            const result = await uploadChunk(
+              chunk,
+              uploadId,
+              chunkIndex,
+              totalChunks,
+              file.name,
+              relativePath,
+              path
+            );
+            
+            if (result.success) {
+              success = true;
+              
+              // Update progress
+              if (typeof onProgress === 'function') {
+                const progress = ((chunkIndex + 1) / totalChunks) * 100;
+                onProgress(progress);
+              }
+              
+              // If this was the last chunk, return the final result
+              if (chunkIndex + 1 === totalChunks) {
+                resolve({
+                  success: true,
+                  filename: result.filename || relativePath,
+                  message: result.message || 'File uploaded successfully.'
+                });
+              }
+            } else {
+              lastError = new Error(result.message || 'Chunk upload failed');
+              retries--;
+            }
+          } catch (err) {
+            lastError = err;
+            retries--;
+            
+            // Wait before retry (exponential backoff)
+            if (retries > 0) {
+              await new Promise(r => setTimeout(r, (4 - retries) * 1000));
+            }
+          }
+        }
+        
+        // If chunk failed after all retries, reject
+        if (!success) {
+          reject(lastError || new Error(`Failed to upload chunk ${chunkIndex}`));
+          return;
+        }
+      }
+    } catch (err) {
+      reject(err);
+    }
+  });
+}

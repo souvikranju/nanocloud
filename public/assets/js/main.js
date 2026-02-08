@@ -32,7 +32,6 @@ const DOM = {
   modalClose: document.getElementById('modalClose'),
   modalFileInput: document.getElementById('modalFileInput'),
   modalDropArea: document.getElementById('modalDropArea'),
-  serverLimitText: document.getElementById('serverLimitText'),
 
   // Progress tracking
   uploadSection: document.getElementById('uploadSection'),
@@ -429,8 +428,6 @@ async function fetchServerInfo() {
     if (data && data.success) {
       // Store all server configuration in one place
       setServerConfig({
-        maxFileBytes: data.maxFileBytes ?? null,
-        maxSessionBytes: data.maxSessionBytes ?? null,
         readOnly: data.readOnly ?? false,
         uploadEnabled: data.uploadEnabled ?? true,
         deleteEnabled: data.deleteEnabled ?? true,
@@ -440,11 +437,6 @@ async function fetchServerInfo() {
       
       // Update UI based on configuration
       updateUIForConfiguration();
-      
-      if (DOM.serverLimitText) {
-        const maxSize = (data.maxFileBytes != null) ? formatBytes(data.maxFileBytes) : 'unknown';
-        DOM.serverLimitText.textContent = `Server limit: ${maxSize}`;
-      }
     }
   } catch (error) {
     // Ignore errors to keep client behavior safe

@@ -59,59 +59,6 @@ $STORAGE_ROOT = '/home/username/nanocloud-files';
 - Web server must have read/write permissions
 - Should NOT be inside the `public/` directory for security
 
-### Upload Limits
-
-#### Maximum File Size
-
-```php
-$USER_DEFINED_MAX_FILE_SIZE = 5368709120; // 5GB in bytes
-```
-
-**Description:** Maximum size for a single uploaded file.
-
-**Default:** `5368709120` (5GB)
-
-**Examples:**
-```php
-// 100MB
-$USER_DEFINED_MAX_FILE_SIZE = 104857600;
-
-// 1GB
-$USER_DEFINED_MAX_FILE_SIZE = 1073741824;
-
-// 10GB
-$USER_DEFINED_MAX_FILE_SIZE = 10737418240;
-
-// No limit (use PHP's limit)
-$USER_DEFINED_MAX_FILE_SIZE = null;
-```
-
-**Note:** This must be less than or equal to PHP's `upload_max_filesize` and `post_max_size` settings.
-
-#### Maximum Session Size
-
-```php
-$MAX_SESSION_BYTES = 5368709120; // 5GB in bytes
-```
-
-**Description:** Maximum total size of all files uploaded in a single session.
-
-**Default:** `5368709120` (5GB)
-
-**Purpose:** Prevents a single user from uploading unlimited data in one session.
-
-**Examples:**
-```php
-// 500MB per session
-$MAX_SESSION_BYTES = 524288000;
-
-// 10GB per session
-$MAX_SESSION_BYTES = 10737418240;
-
-// No limit
-$MAX_SESSION_BYTES = null;
-```
-
 ### Download Settings
 
 #### Download Rate Limiting
@@ -186,6 +133,76 @@ $FILE_PERMISSIONS = 0640; // rw-r-----
 // Everyone can read
 $FILE_PERMISSIONS = 0644; // rw-r--r--
 ```
+
+### Chunked Upload Configuration
+
+#### Chunk Temporary Directory
+
+```php
+$CHUNK_TEMP_DIR = '/path/to/temp/chunks';
+```
+
+**Description:** Directory for storing temporary file chunks during upload.
+
+**Default:** `sys_get_temp_dir() . '/nanocloud-chunks'` (system temp directory)
+
+**Examples:**
+```php
+// System temp directory (default)
+$CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
+
+// Custom temp location
+$CHUNK_TEMP_DIR = '/var/tmp/nanocloud-chunks';
+
+// Fast SSD storage for better performance
+$CHUNK_TEMP_DIR = '/mnt/ssd/nanocloud-chunks';
+
+// RAM disk for maximum speed
+$CHUNK_TEMP_DIR = '/dev/shm/nanocloud-chunks';
+```
+
+**Important:**
+- Must be an absolute path
+- Web server must have read/write permissions
+- Should have sufficient space for concurrent uploads
+- Faster storage improves upload performance
+
+**Use Cases:**
+- **SSD/NVMe:** Better performance for large file uploads
+- **RAM disk:** Maximum speed for temporary storage
+- **Separate partition:** Isolate temp files from main storage
+
+#### Chunk Stale Hours
+
+```php
+$CHUNK_STALE_HOURS = 2;
+```
+
+**Description:** Hours to keep incomplete chunk uploads before automatic cleanup.
+
+**Default:** `2` (2 hours)
+
+**Examples:**
+```php
+// 1 hour (aggressive cleanup)
+$CHUNK_STALE_HOURS = 1;
+
+// 4 hours (more lenient)
+$CHUNK_STALE_HOURS = 4;
+
+// 24 hours (keep for a day)
+$CHUNK_STALE_HOURS = 24;
+```
+
+**How It Works:**
+- Incomplete uploads are automatically deleted after this time
+- Timer resets each time a new chunk is uploaded
+- Cleanup runs when a new upload starts (chunk 0)
+- No external cron jobs required
+
+**Use Cases:**
+- **Short duration (1-2 hours):** Limited disk space, frequent uploads
+- **Long duration (4-24 hours):** Slow connections, large files, resume flexibility
 
 ### File Ownership
 
@@ -430,13 +447,15 @@ export const TOAST_AUTO_DISMISS_MS = 5000;
 
 ```php
 <?php
-// Generous limits for home use
+// Home use configuration
 $STORAGE_ROOT = '/mnt/nas/family-files';
-$USER_DEFINED_MAX_FILE_SIZE = 10737418240; // 10GB
-$MAX_SESSION_BYTES = 53687091200; // 50GB
 $DOWNLOAD_RATE_LIMIT_MB = 0; // Unlimited
 $DIR_PERMISSIONS = 0755;
 $FILE_PERMISSIONS = 0644;
+
+// Chunked uploads (unlimited file sizes)
+$CHUNK_TEMP_DIR = '/mnt/ssd/nanocloud-chunks'; // Fast storage
+$CHUNK_STALE_HOURS = 4; // Keep incomplete uploads for 4 hours
 
 // All operations enabled
 $READ_ONLY = false;
@@ -450,13 +469,15 @@ $MOVE_ENABLED = true;
 
 ```php
 <?php
-// Moderate limits with some restrictions
+// Shared environment with some restrictions
 $STORAGE_ROOT = '/var/www/shared-files';
-$USER_DEFINED_MAX_FILE_SIZE = 2147483648; // 2GB
-$MAX_SESSION_BYTES = 10737418240; // 10GB per session
 $DOWNLOAD_RATE_LIMIT_MB = 10; // 10 MB/s
 $DIR_PERMISSIONS = 0750;
 $FILE_PERMISSIONS = 0640;
+
+// Chunked uploads
+$CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
+$CHUNK_STALE_HOURS = 2; // Aggressive cleanup
 
 // Prevent deletions and moves
 $READ_ONLY = false;
@@ -488,10 +509,12 @@ $MOVE_ENABLED = false;
 <?php
 // Upload-only for guests
 $STORAGE_ROOT = '/incoming/guest-uploads';
-$USER_DEFINED_MAX_FILE_SIZE = 524288000; // 500MB
-$MAX_SESSION_BYTES = 1073741824; // 1GB per session
 $DIR_PERMISSIONS = 0755;
 $FILE_PERMISSIONS = 0644;
+
+// Chunked uploads
+$CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
+$CHUNK_STALE_HOURS = 1; // Quick cleanup
 
 // Only uploads allowed
 $READ_ONLY = false;
