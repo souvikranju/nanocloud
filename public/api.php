@@ -45,6 +45,8 @@ try {
     match($action) {
         'list' => handleList(),
         'upload' => handleUpload(),
+        'upload_chunk' => handleUploadChunk(),
+        'upload_check' => handleUploadCheck(),
         'delete' => handleDelete(),
         'create_dir' => handleCreateDir(),
         'delete_dir' => handleDeleteDir(),
@@ -81,6 +83,52 @@ function handleUpload(): never
     
     $service = new UploadService();
     $result = $service->handleUpload($path);
+    
+    Response::json($result);
+}
+
+/**
+ * Handle chunked file upload
+ */
+function handleUploadChunk(): never
+{
+    $uploadId = Request::post('uploadId', '');
+    $chunkIndex = Request::post('chunkIndex', '');
+    $totalChunks = Request::post('totalChunks', '');
+    $filename = Request::post('filename', '');
+    $relativePath = Request::post('relativePath', '');
+    $path = Request::post('path', '');
+    
+    if ($uploadId === '' || $chunkIndex === '' || $totalChunks === '' || $filename === '') {
+        Response::error('Missing required chunk parameters.');
+    }
+    
+    $service = new UploadService();
+    $result = $service->handleChunk(
+        $uploadId,
+        (int)$chunkIndex,
+        (int)$totalChunks,
+        $filename,
+        $relativePath,
+        $path
+    );
+    
+    Response::json($result);
+}
+
+/**
+ * Handle upload status check (for resumability)
+ */
+function handleUploadCheck(): never
+{
+    $uploadId = Request::post('uploadId', '');
+    
+    if ($uploadId === '') {
+        Response::error('Missing upload ID.');
+    }
+    
+    $service = new UploadService();
+    $result = $service->checkUploadStatus($uploadId);
     
     Response::json($result);
 }
@@ -206,8 +254,6 @@ function handleInfo(): never
     
     Response::json([
         'success' => true,
-        'maxFileBytes' => Config::get('MAX_FILE_BYTES'),
-        'maxSessionBytes' => Config::get('MAX_SESSION_BYTES'),
         'readOnly' => Config::get('READ_ONLY'),
         'uploadEnabled' => Config::get('UPLOAD_ENABLED'),
         'deleteEnabled' => Config::get('DELETE_ENABLED'),

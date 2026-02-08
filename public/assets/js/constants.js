@@ -36,6 +36,15 @@ export const TOAST_AUTO_DISMISS_MS = 5000;
 /** Maximum concurrent uploads */
 export const MAX_CONCURRENT_UPLOADS = 3;
 
+/** Chunk size for large file uploads (2MB) */
+export const CHUNK_SIZE = 2 * 1024 * 1024;
+
+/** Threshold for using chunked upload (files larger than this use chunking) */
+export const CHUNKED_UPLOAD_THRESHOLD = CHUNK_SIZE;
+
+/** Maximum retry attempts per chunk */
+export const MAX_CHUNK_RETRIES = 3;
+
 // =====================================
 // CSS CLASSES
 // =====================================

@@ -161,7 +161,6 @@
                 <button class="btn btn-secondary" id="modalClose">Close</button>
             </div>
             <div class="modal-body">
-                <div class="server-info" id="serverLimitText">Loading server limits…</div>
                 <div id="modalMessages" class="messages"></div>
                 
                 <div class="file-input-wrapper">

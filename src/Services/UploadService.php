@@ -5,8 +5,7 @@
  * Handles file uploads with transactional support, including:
  * - Multi-file uploads
  * - Folder structure preservation
- * - Size validation
- * - Session limits
+ * - Chunked uploads for unlimited file sizes
  * - Rollback on client disconnect
  */
 
@@ -94,11 +93,6 @@ class UploadService
             $relativePaths = [];
         }
         
-        // Initialize session upload tracking
-        if (!isset($_SESSION['uploaded_total_bytes'])) {
-            $_SESSION['uploaded_total_bytes'] = 0;
-        }
-        
         $results = [];
         $tempDir = Config::getTempDir();
         ensureDirectoryExists($tempDir);
@@ -122,7 +116,6 @@ class UploadService
             'success' => true,
             'message' => 'Upload processed.',
             'results' => $results,
-            'session_total_bytes' => $_SESSION['uploaded_total_bytes'],
             'storage' => $this->storageService->getStorageInfo()
         ];
     }
@@ -157,19 +150,6 @@ class UploadService
         // Handle PHP upload errors
         if ($error !== UPLOAD_ERR_OK) {
             $result['message'] = getUploadErrorMessage($error);
-            return $result;
-        }
-        
-        // Server-side size check
-        if ($size > Config::get('MAX_FILE_BYTES')) {
-            $result['message'] = 'File exceeds maximum allowed size.';
-            return $result;
-        }
-        
-        // Check per-session cumulative limit
-        $sessionTotal = $_SESSION['uploaded_total_bytes'];
-        if ($sessionTotal + $size > Config::get('MAX_SESSION_BYTES')) {
-            $result['message'] = 'Per-session upload limit exceeded.';
             return $result;
         }
         
@@ -250,9 +230,6 @@ class UploadService
         // Apply permissions
         applyPermissions($finalPath, false);
         
-        // Update session total
-        $_SESSION['uploaded_total_bytes'] += $size;
-        
         $result['success'] = true;
         $result['filename'] = $sanitizedPath;
         $result['message'] = 'File uploaded successfully.';
@@ -299,5 +276,437 @@ class UploadService
                 @unlink($file);
             }
         }
+    }
+    
+    /**
+     * Check upload status for resumability
+     * 
+     * @param string $uploadId Unique identifier for this upload session
+     * @return array Status information
+     */
+    public function checkUploadStatus(string $uploadId): array
+    {
+        // Validate uploadId (alphanumeric and hyphens only)
+        if (!preg_match('/^[a-zA-Z0-9\-]+$/', $uploadId)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid upload ID.'
+            ];
+        }
+        
+        // Check if chunks directory exists
+        $chunksBaseDir = Config::get('CHUNK_TEMP_DIR') . DIRECTORY_SEPARATOR . 'chunks';
+        $uploadDir = $chunksBaseDir . DIRECTORY_SEPARATOR . $uploadId;
+        
+        if (!is_dir($uploadDir)) {
+            return [
+                'success' => true,
+                'exists' => false,
+                'nextChunkIndex' => 0,
+                'message' => 'No existing upload found.'
+            ];
+        }
+        
+        // Count existing chunks (sequential from 0)
+        $nextChunkIndex = 0;
+        while (true) {
+            $chunkPath = $uploadDir . DIRECTORY_SEPARATOR . $nextChunkIndex . '.part';
+            if (!file_exists($chunkPath)) {
+                break;
+            }
+            $nextChunkIndex++;
+        }
+        
+        return [
+            'success' => true,
+            'exists' => true,
+            'nextChunkIndex' => $nextChunkIndex,
+            'message' => "Found $nextChunkIndex existing chunks."
+        ];
+    }
+    
+    /**
+     * Handle chunked file upload
+     * 
+     * @param string $uploadId Unique identifier for this upload session
+     * @param int $chunkIndex Current chunk index (0-based)
+     * @param int $totalChunks Total number of chunks
+     * @param string $filename Original filename
+     * @param string $relativePath Relative path for folder uploads
+     * @param string $targetPath Target directory path
+     * @return array Response with status
+     */
+    public function handleChunk(
+        string $uploadId,
+        int $chunkIndex,
+        int $totalChunks,
+        string $filename,
+        string $relativePath,
+        string $targetPath
+    ): array {
+        // Check if operation is allowed
+        $check = checkOperationAllowed('upload');
+        if (!$check['allowed']) {
+            return [
+                'success' => false,
+                'message' => $check['message']
+            ];
+        }
+        
+        // Allow script to continue for cleanup even if client disconnects
+        ignore_user_abort(true);
+        
+        // Validate uploadId (alphanumeric and hyphens only)
+        if (!preg_match('/^[a-zA-Z0-9\-]+$/', $uploadId)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid upload ID.'
+            ];
+        }
+        
+        // Validate chunk parameters
+        if ($chunkIndex < 0 || $chunkIndex >= $totalChunks || $totalChunks <= 0) {
+            return [
+                'success' => false,
+                'message' => 'Invalid chunk parameters.'
+            ];
+        }
+        
+        // Validate target path
+        $validated = PathValidator::validatePath($targetPath);
+        if ($validated === null) {
+            return [
+                'success' => false,
+                'message' => 'Target path not found.'
+            ];
+        }
+        
+        $targetDir = $validated['absolute'];
+        
+        // Create chunks directory
+        $chunksBaseDir = Config::get('CHUNK_TEMP_DIR') . DIRECTORY_SEPARATOR . 'chunks';
+        ensureDirectoryExists($chunksBaseDir);
+        
+        // Clean up stale chunks on first chunk (index 0)
+        if ($chunkIndex === 0) {
+            $this->cleanupStaleChunks($chunksBaseDir);
+        }
+        
+        // Create upload-specific directory
+        $uploadDir = $chunksBaseDir . DIRECTORY_SEPARATOR . $uploadId;
+        ensureDirectoryExists($uploadDir);
+        
+        // Get chunk data from $_FILES
+        $chunkFile = Request::files('chunk');
+        if ($chunkFile === null || !isset($chunkFile['tmp_name'])) {
+            return [
+                'success' => false,
+                'message' => 'No chunk data provided.'
+            ];
+        }
+        
+        $tmpName = $chunkFile['tmp_name'];
+        $error = $chunkFile['error'] ?? UPLOAD_ERR_NO_FILE;
+        
+        // Handle PHP upload errors
+        if ($error !== UPLOAD_ERR_OK) {
+            return [
+                'success' => false,
+                'message' => getUploadErrorMessage($error)
+            ];
+        }
+        
+        // Validate uploaded file
+        if (!is_uploaded_file($tmpName)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid uploaded chunk.'
+            ];
+        }
+        
+        // Save chunk
+        $chunkPath = $uploadDir . DIRECTORY_SEPARATOR . $chunkIndex . '.part';
+        if (!@move_uploaded_file($tmpName, $chunkPath)) {
+            return [
+                'success' => false,
+                'message' => 'Failed to save chunk.'
+            ];
+        }
+        
+        // Check if client aborted
+        if (Request::isAborted()) {
+            $this->cleanupUploadDirectory($uploadDir);
+            return [
+                'success' => false,
+                'message' => 'Upload aborted by client.'
+            ];
+        }
+        
+        // Check if this is the last chunk
+        if ($chunkIndex + 1 === $totalChunks) {
+            // Merge chunks into final file
+            return $this->mergeChunks(
+                $uploadDir,
+                $totalChunks,
+                $filename,
+                $relativePath,
+                $targetDir
+            );
+        }
+        
+        // Not the last chunk, return success
+        return [
+            'success' => true,
+            'message' => 'Chunk received.',
+            'chunkIndex' => $chunkIndex,
+            'totalChunks' => $totalChunks
+        ];
+    }
+    
+    /**
+     * Merge all chunks into final file
+     * 
+     * @param string $uploadDir Directory containing chunks
+     * @param int $totalChunks Total number of chunks
+     * @param string $filename Original filename
+     * @param string $relativePath Relative path for folder uploads
+     * @param string $targetDir Target directory absolute path
+     * @return array Result of merge operation
+     */
+    private function mergeChunks(
+        string $uploadDir,
+        int $totalChunks,
+        string $filename,
+        string $relativePath,
+        string $targetDir
+    ): array {
+        // Verify all chunks exist
+        for ($i = 0; $i < $totalChunks; $i++) {
+            $chunkPath = $uploadDir . DIRECTORY_SEPARATOR . $i . '.part';
+            if (!file_exists($chunkPath)) {
+                $this->cleanupUploadDirectory($uploadDir);
+                return [
+                    'success' => false,
+                    'message' => "Missing chunk $i of $totalChunks."
+                ];
+            }
+        }
+        
+        // Sanitize the path
+        $sanitizedPath = $this->sanitizePath($relativePath, $filename);
+        if ($sanitizedPath === '') {
+            $this->cleanupUploadDirectory($uploadDir);
+            return [
+                'success' => false,
+                'message' => 'Invalid filename or path.'
+            ];
+        }
+        
+        $finalPath = $targetDir . DIRECTORY_SEPARATOR . $sanitizedPath;
+        
+        // Create nested directories if needed
+        $finalDir = dirname($finalPath);
+        if ($finalDir !== $targetDir && !is_dir($finalDir)) {
+            if (!ensureDirectoryExists($finalDir)) {
+                $this->cleanupUploadDirectory($uploadDir);
+                return [
+                    'success' => false,
+                    'message' => 'Failed to create directory structure.'
+                ];
+            }
+            
+            // Verify created directory is within root
+            $finalDirReal = realpath($finalDir);
+            $storageRoot = realpath(Config::get('STORAGE_ROOT'));
+            if ($finalDirReal === false || !PathValidator::isWithinRoot($storageRoot, $finalDirReal)) {
+                $this->cleanupUploadDirectory($uploadDir);
+                return [
+                    'success' => false,
+                    'message' => 'Invalid directory path.'
+                ];
+            }
+        }
+        
+        // Check for duplicates
+        if (file_exists($finalPath)) {
+            $this->cleanupUploadDirectory($uploadDir);
+            return [
+                'success' => false,
+                'message' => 'A file with the same name already exists.'
+            ];
+        }
+        
+        // Calculate total size and check disk space
+        $totalSize = 0;
+        for ($i = 0; $i < $totalChunks; $i++) {
+            $chunkPath = $uploadDir . DIRECTORY_SEPARATOR . $i . '.part';
+            $totalSize += filesize($chunkPath);
+        }
+        
+        if (!$this->storageService->hasEnoughSpace($totalSize)) {
+            $this->cleanupUploadDirectory($uploadDir);
+            return [
+                'success' => false,
+                'message' => 'Insufficient disk space on server.'
+            ];
+        }
+        
+        // Open final file for writing
+        $finalHandle = @fopen($finalPath, 'wb');
+        if ($finalHandle === false) {
+            $this->cleanupUploadDirectory($uploadDir);
+            return [
+                'success' => false,
+                'message' => 'Failed to create final file.'
+            ];
+        }
+        
+        // Merge chunks sequentially
+        for ($i = 0; $i < $totalChunks; $i++) {
+            $chunkPath = $uploadDir . DIRECTORY_SEPARATOR . $i . '.part';
+            $chunkHandle = @fopen($chunkPath, 'rb');
+            
+            if ($chunkHandle === false) {
+                fclose($finalHandle);
+                @unlink($finalPath);
+                $this->cleanupUploadDirectory($uploadDir);
+                return [
+                    'success' => false,
+                    'message' => "Failed to read chunk $i."
+                ];
+            }
+            
+            // Stream chunk to final file
+            while (!feof($chunkHandle)) {
+                $buffer = fread($chunkHandle, 8192);
+                if ($buffer === false) {
+                    fclose($chunkHandle);
+                    fclose($finalHandle);
+                    @unlink($finalPath);
+                    $this->cleanupUploadDirectory($uploadDir);
+                    return [
+                        'success' => false,
+                        'message' => "Failed to read chunk $i."
+                    ];
+                }
+                
+                if (fwrite($finalHandle, $buffer) === false) {
+                    fclose($chunkHandle);
+                    fclose($finalHandle);
+                    @unlink($finalPath);
+                    $this->cleanupUploadDirectory($uploadDir);
+                    return [
+                        'success' => false,
+                        'message' => 'Failed to write to final file.'
+                    ];
+                }
+            }
+            
+            fclose($chunkHandle);
+            
+            // Check if client aborted during merge
+            if (Request::isAborted()) {
+                fclose($finalHandle);
+                @unlink($finalPath);
+                $this->cleanupUploadDirectory($uploadDir);
+                return [
+                    'success' => false,
+                    'message' => 'Upload aborted during merge.'
+                ];
+            }
+        }
+        
+        fclose($finalHandle);
+        
+        // Verify final file size
+        $finalSize = filesize($finalPath);
+        if ($finalSize !== $totalSize) {
+            @unlink($finalPath);
+            $this->cleanupUploadDirectory($uploadDir);
+            return [
+                'success' => false,
+                'message' => 'File size mismatch after merge.'
+            ];
+        }
+        
+        // Apply permissions
+        applyPermissions($finalPath, false);
+        
+        // Cleanup chunks
+        $this->cleanupUploadDirectory($uploadDir);
+        
+        return [
+            'success' => true,
+            'message' => 'File uploaded successfully.',
+            'filename' => $sanitizedPath,
+            'size' => $totalSize,
+            'storage' => $this->storageService->getStorageInfo()
+        ];
+    }
+    
+    /**
+     * Clean up stale chunk directories
+     * 
+     * @param string $chunksBaseDir Base chunks directory
+     */
+    private function cleanupStaleChunks(string $chunksBaseDir): void
+    {
+        if (!is_dir($chunksBaseDir)) {
+            return;
+        }
+        
+        $staleHours = Config::get('CHUNK_STALE_HOURS');
+        $staleThreshold = time() - ($staleHours * 3600);
+        $items = @scandir($chunksBaseDir);
+        
+        if ($items === false) {
+            return;
+        }
+        
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            
+            $itemPath = $chunksBaseDir . DIRECTORY_SEPARATOR . $item;
+            
+            if (is_dir($itemPath)) {
+                $mtime = @filemtime($itemPath);
+                if ($mtime !== false && $mtime < $staleThreshold) {
+                    $this->cleanupUploadDirectory($itemPath);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Recursively delete upload directory and its contents
+     * 
+     * @param string $uploadDir Directory to delete
+     */
+    private function cleanupUploadDirectory(string $uploadDir): void
+    {
+        if (!is_dir($uploadDir)) {
+            return;
+        }
+        
+        $items = @scandir($uploadDir);
+        if ($items === false) {
+            return;
+        }
+        
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            
+            $itemPath = $uploadDir . DIRECTORY_SEPARATOR . $item;
+            
+            if (is_file($itemPath)) {
+                @unlink($itemPath);
+            }
+        }
+        
+        @rmdir($uploadDir);
     }
 }

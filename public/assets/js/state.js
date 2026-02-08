@@ -11,10 +11,8 @@ export { API_URL, DOWNLOAD_BASE };
 let currentPath = '';
 let previousPath = '';
 
-/** Server configuration including limits and operation control */
+/** Server configuration for operation control */
 let serverConfig = {
-  maxFileBytes: null,
-  maxSessionBytes: null,
   readOnly: false,
   uploadEnabled: true,
   deleteEnabled: true,
@@ -56,14 +54,6 @@ export function setCurrentPath(path) {
  */
 export function hasPathChanged() {
   return previousPath !== currentPath;
-}
-
-/**
- * Get the server-reported max file size in bytes or null when unknown.
- * @returns {number|null}
- */
-export function getMaxFileBytes() {
-  return serverConfig.maxFileBytes;
 }
 
 /**

@@ -12,13 +12,6 @@ declare(strict_types=1);
 // Example: $STORAGE_ROOT = '/var/www/nanocloud-storage';
 $STORAGE_ROOT = dirname(__DIR__) . '/storage';
 
-// Maximum file size in bytes
-// Example: 10GB = 10737418240
-$USER_DEFINED_MAX_FILE_SIZE = 5368709120; // 5GB
-
-// Maximum session upload size in bytes
-$MAX_SESSION_BYTES = 5368709120; // 5GB
-
 // Download rate limit in MB/s (0 = unlimited)
 $DOWNLOAD_RATE_LIMIT_MB = 0;
 
@@ -31,6 +24,15 @@ $FILE_PERMISSIONS = 0644;
 // Example: $FILE_GROUP = 'www-data';
 $FILE_OWNER = null;
 $FILE_GROUP = null;
+
+// Chunked upload configuration
+// Temporary directory for chunk storage
+// Example: $CHUNK_TEMP_DIR = '/var/tmp/nanocloud-chunks';
+$CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
+
+// Hours to keep incomplete uploads before cleanup
+// Example: $CHUNK_STALE_HOURS = 4; // Keep for 4 hours
+$CHUNK_STALE_HOURS = 2;
 
 // Operation control
 $READ_ONLY = false;

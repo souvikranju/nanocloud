@@ -190,6 +190,8 @@ Browser receives JSON
 ```
 
 ### 2. Upload File
+
+**Standard Upload (Small Files)**:
 ```
 Browser → api.php (POST with files)
     ↓
@@ -215,6 +217,26 @@ For each file:
 Response::json($results)
     ↓
 Browser receives per-file results
+```
+
+**Chunked Upload (Large Files)**:
+For files larger than 2MB, the system uses chunked uploads to bypass PHP size limits.
+See [CHUNKED_UPLOAD.md](CHUNKED_UPLOAD.md) for detailed documentation.
+
+```
+Browser → api.php (POST chunk)
+    ↓
+Request::input('action') → 'upload_chunk'
+    ↓
+handleUploadChunk()
+    ↓
+UploadService::handleChunk()
+    ↓
+Save chunk to temp/chunks/{uploadId}/{index}.part
+    ↓
+Last chunk? → Merge all chunks → Final file
+    ↓
+Response::json($result)
 ```
 
 ### 3. Delete File
