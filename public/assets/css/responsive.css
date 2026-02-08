@@ -37,21 +37,22 @@
   .storage-card {
     min-width: auto;
     max-width: none;
-    padding: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: rgba(255, 255, 255, 0.1);
   }
 
+  /* Hide text labels on mobile for slim storage bar */
   .storage-title {
-    font-size: var(--font-size-xs);
-    margin-bottom: var(--space-1);
+    display: none;
   }
 
   .storage-text {
-    font-size: var(--font-size-xs);
-    margin-bottom: var(--space-2);
+    display: none;
   }
 
   .storage-bar-wrap {
-    height: 4px;
+    height: 6px;
+    margin: 0;
   }
 
   .file-list-controls-section {

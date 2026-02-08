@@ -108,8 +108,9 @@ export function initList(refs) {
   initFilterSort({
     searchInput: document.getElementById('searchInput'),
     clearSearchBtn: document.getElementById('clearSearchBtn'),
-    deepSearchBtn: document.getElementById('deepSearchBtn'),
-    sortSelect: document.getElementById('sortSelect')
+    deepSearchCheckbox: document.getElementById('deepSearchCheckbox'),
+    gridViewBtn: document.getElementById('gridViewBtn'),
+    listViewBtn: document.getElementById('listViewBtn')
   });
   
   // Set up callback for filter/sort changes
@@ -476,14 +477,30 @@ function renderNormalItems(items, mode, query) {
     const header = document.createElement('div');
     header.className = 'search-results-header';
     header.innerHTML = `
-      <div class="search-results-title">
-        🔍 Search Results (${currentItems.length} items found)
+      <div class="search-results-content">
+        <div class="search-results-title">
+          🔍 Search Results (${currentItems.length} items found)
+        </div>
+        <div class="search-results-info">
+          Searching in: ${getCurrentPath() || 'Home'}
+        </div>
       </div>
-      <div class="search-results-info">
-        Searching in: ${getCurrentPath() || 'Home'}
-      </div>
+      <button class="btn btn-secondary" id="exitSearchBtn">
+        ✕ Clear Search
+      </button>
     `;
     fileListEl.appendChild(header);
+    
+    // Add click handler for exit search button
+    const exitBtn = header.querySelector('#exitSearchBtn');
+    if (exitBtn) {
+      exitBtn.addEventListener('click', () => {
+        resetSearch();
+        if (window.filterSortCallback) {
+          window.filterSortCallback();
+        }
+      });
+    }
   }
 
   if (currentViewMode === VIEW_MODE_GRID) {
@@ -519,14 +536,30 @@ function renderDeepSearchResults(items, query) {
   const header = document.createElement('div');
   header.className = 'search-results-header';
   header.innerHTML = `
-    <div class="search-results-title">
-      🔍 Deep Search Results (${currentItems.length} items found)
+    <div class="search-results-content">
+      <div class="search-results-title">
+        🔍 Deep Search Results (${currentItems.length} items found)
+      </div>
+      <div class="search-results-info">
+        Searched from: ${getCurrentPath() || 'Home'}
+      </div>
     </div>
-    <div class="search-results-info">
-      Searched from: ${getCurrentPath() || 'Home'}
-    </div>
+    <button class="btn btn-secondary" id="exitSearchBtn">
+      ✕ Clear Search
+    </button>
   `;
   fileListEl.appendChild(header);
+  
+  // Add click handler for exit search button
+  const exitBtn = header.querySelector('#exitSearchBtn');
+  if (exitBtn) {
+    exitBtn.addEventListener('click', () => {
+      resetSearch();
+      if (window.filterSortCallback) {
+        window.filterSortCallback();
+      }
+    });
+  }
   
   // Render each result with path
   currentItems.forEach(item => {
@@ -548,8 +581,22 @@ function showEmptySearchState(query) {
     <div class="empty-state-description">
       No items match "${query}"
     </div>
+    <button class="btn btn-secondary" id="emptyStateClearBtn" style="margin-top: var(--space-4);">
+      ✕ Clear Search
+    </button>
   `;
   emptyStateEl.style.display = 'flex';
+  
+  // Add click handler for clear button
+  const clearBtn = emptyStateEl.querySelector('#emptyStateClearBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      resetSearch();
+      if (window.filterSortCallback) {
+        window.filterSortCallback();
+      }
+    });
+  }
 }
 
 /**
