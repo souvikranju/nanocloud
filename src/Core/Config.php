@@ -26,7 +26,6 @@ class Config
      * Load configuration from files
      * 
      * Loads defaults first, then applies local overrides if they exist.
-     * Also calculates derived values like MAX_FILE_BYTES.
      */
     public static function load(): void
     {
@@ -49,13 +48,6 @@ class Config
             // Merge local values
             self::$config = array_merge(self::$config, get_defined_vars());
         }
-        
-        // Calculate MAX_FILE_BYTES from PHP settings and user-defined limit
-        $uploadMax = self::parseSizeToBytes(ini_get('upload_max_filesize'));
-        $postMax = self::parseSizeToBytes(ini_get('post_max_size'));
-        $userMax = self::$config['USER_DEFINED_MAX_FILE_SIZE'] ?? PHP_INT_MAX;
-        
-        self::$config['MAX_FILE_BYTES'] = min($userMax, $uploadMax, $postMax);
         
         // Set PHP runtime configuration
         ini_set('max_execution_time', '300');
@@ -107,35 +99,5 @@ class Config
         }
         
         return self::$config;
-    }
-    
-    /**
-     * Parse PHP ini size notation to bytes
-     * 
-     * @param string $size Size string (e.g., "2M", "1G")
-     * @return int Size in bytes
-     */
-    private static function parseSizeToBytes(string $size): int
-    {
-        $size = trim($size);
-        $last = strtolower($size[strlen($size) - 1]);
-        $value = (int)$size;
-        
-        return match($last) {
-            'g' => $value * 1024 * 1024 * 1024,
-            'm' => $value * 1024 * 1024,
-            'k' => $value * 1024,
-            default => $value
-        };
-    }
-    
-    /**
-     * Get the temporary directory path
-     * 
-     * @return string Temporary directory path
-     */
-    public static function getTempDir(): string
-    {
-        return self::get('STORAGE_ROOT') . DIRECTORY_SEPARATOR . '.temp';
     }
 }

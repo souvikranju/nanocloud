@@ -136,10 +136,6 @@ nano config/local.php
 <?php
 // Storage location (absolute path)
 $STORAGE_ROOT = '/var/www/nanocloud/storage';
-
-// Upload limits
-$USER_DEFINED_MAX_FILE_SIZE = 5368709120; // 5GB
-$MAX_SESSION_BYTES = 5368709120; // 5GB
 ```
 
 ### 4. Set Permissions
@@ -156,7 +152,7 @@ sudo chmod 755 /var/www/nanocloud/storage
 ls -la /var/www/nanocloud
 ```
 
-### 5. Configure PHP
+### 5. Configure PHP (Optional)
 
 Edit `php.ini` to allow large uploads:
 
@@ -291,7 +287,7 @@ ls -la /var/www/nanocloud/.htaccess
 
 - Default configuration is suitable for trusted private networks
 - No authentication required
-- All users have full access
+- All users have at least read access
 
 ### For Public Access
 
@@ -325,7 +321,6 @@ sudo htpasswd -c /etc/apache2/.htpasswd username
 ## Next Steps
 
 - **[Configuration Guide](CONFIGURATION.md)** - Customize settings
-- **[Deployment Guide](DEPLOYMENT.md)** - Production setup
 - **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues
 
 ---

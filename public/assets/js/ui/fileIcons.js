@@ -120,7 +120,7 @@ export function isViewableInBrowser(filename) {
   const ext = filename.toLowerCase().split('.').pop();
   
   // Files that should NEVER be opened in browser (force download)
-  const forceDownloadExts = ['mkv', 'avi', 'mov', 'wmv', 'flv', 'm4v', '3gp', 'exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm'];
+  const forceDownloadExts = ['avi', 'wmv', 'flv', 'exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm'];
   if (forceDownloadExts.includes(ext)) {
     return false;
   }
@@ -131,7 +131,7 @@ export function isViewableInBrowser(filename) {
   }
   
   // Videos (only browser-supported formats)
-  if (['mp4', 'webm', 'ogg'].includes(ext)) {
+  if (['mp4', 'webm', 'ogg', 'mov', 'm4v', '3gp', 'mkv'].includes(ext)) {
     return true;
   }
   

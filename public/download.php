@@ -53,12 +53,7 @@ if (!file_exists($filePath) || !is_file($filePath)) {
 
 // Get file info
 $fileSize = filesize($filePath);
-$mimeType = mime_content_type($filePath);
-
-// Fallback MIME type
-if ($mimeType === false) {
-    $mimeType = 'application/octet-stream';
-}
+$mimeType = getMimeTypeForFile($filePath, $sanitizedFilename);
 
 // Set headers
 header('Content-Type: ' . $mimeType);
@@ -121,6 +116,79 @@ if ($rangeHeader !== '' && preg_match('/bytes=(\d+)-(\d*)/', $rangeHeader, $matc
     }
     
     fclose($fp);
+}
+
+/**
+ * Get MIME type for file with extension-based overrides
+ * 
+ * @param string $filePath Full file path
+ * @param string $filename Filename with extension
+ * @return string MIME type
+ */
+function getMimeTypeForFile(string $filePath, string $filename): string
+{
+    // Extension-based MIME type mapping for media files
+    // This ensures browsers receive correct hints for streaming
+    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    
+    $mimeMap = [
+        // Video formats
+        'mp4' => 'video/mp4',
+        'm4v' => 'video/mp4',
+        'mov' => 'video/quicktime',
+        'mkv' => 'video/x-matroska',
+        '3gp' => 'video/3gpp',
+        'webm' => 'video/webm',
+        'ogg' => 'video/ogg',
+        'ogv' => 'video/ogg',
+        'avi' => 'video/x-msvideo',
+        'wmv' => 'video/x-ms-wmv',
+        'flv' => 'video/x-flv',
+        
+        // Audio formats
+        'mp3' => 'audio/mpeg',
+        'wav' => 'audio/wav',
+        'flac' => 'audio/flac',
+        'aac' => 'audio/aac',
+        'm4a' => 'audio/mp4',
+        'oga' => 'audio/ogg',
+        'opus' => 'audio/opus',
+        'wma' => 'audio/x-ms-wma',
+        
+        // Image formats
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'svg' => 'image/svg+xml',
+        'bmp' => 'image/bmp',
+        'ico' => 'image/x-icon',
+        
+        // Document formats
+        'pdf' => 'application/pdf',
+        'txt' => 'text/plain',
+        'html' => 'text/html',
+        'htm' => 'text/html',
+        'css' => 'text/css',
+        'js' => 'application/javascript',
+        'json' => 'application/json',
+        'xml' => 'application/xml',
+    ];
+    
+    // Check if we have a mapping for this extension
+    if (isset($mimeMap[$ext])) {
+        return $mimeMap[$ext];
+    }
+    
+    // Try PHP's mime_content_type as fallback
+    $detectedMime = mime_content_type($filePath);
+    if ($detectedMime !== false) {
+        return $detectedMime;
+    }
+    
+    // Final fallback
+    return 'application/octet-stream';
 }
 
 /**
