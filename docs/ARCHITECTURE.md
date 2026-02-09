@@ -43,7 +43,6 @@ Each layer has a single, well-defined responsibility:
 #### Config.php
 - Loads configuration from files
 - Merges defaults with local overrides
-- Calculates derived values (MAX_FILE_BYTES)
 - Provides static access to configuration
 
 ```php
@@ -143,10 +142,8 @@ $result = $service->moveItem($from, $type, $name, $to);
 ```
 
 #### UploadService.php
-- Handles file uploads
-- Transactional upload with rollback
-- Validates file sizes
-- Enforces session limits
+- Handles file uploads (standard and chunked)
+- Checks disk space availability
 - Creates nested directories for folder uploads
 
 ```php
@@ -206,12 +203,9 @@ checkOperationAllowed('upload')
 PathValidator::validatePath($path)
     ↓
 For each file:
-  - Validate size
-  - Check session limit
+  - Check disk space
   - Sanitize path
-  - Move to temp (.part)
-  - Check client connection
-  - Atomic rename to final location
+  - Move directly to final location
   - Apply permissions
     ↓
 Response::json($results)
@@ -297,14 +291,9 @@ if (!is_uploaded_file($tmpName)) {
     return error('Invalid upload');
 }
 
-// Check file size
-if ($size > MAX_FILE_BYTES) {
-    return error('File too large');
-}
-
-// Check session limit
-if ($sessionTotal + $size > MAX_SESSION_BYTES) {
-    return error('Session limit exceeded');
+// Check disk space
+if (!$storageService->hasEnoughSpace($size)) {
+    return error('Insufficient disk space');
 }
 
 // Transactional upload with rollback
@@ -340,8 +329,7 @@ if (!$check['allowed']) {
 ### Loading Order
 1. Load `config/defaults.php` (default values)
 2. Load `config/local.php` if exists (overrides)
-3. Calculate derived values (MAX_FILE_BYTES)
-4. Set PHP runtime configuration
+3. Set PHP runtime configuration
 
 ### Configuration Access
 ```php
@@ -420,8 +408,7 @@ foreach ($items as $item) {
 ### Backend
 - [ ] All paths validated
 - [ ] All inputs sanitized
-- [ ] Upload size limits enforced
-- [ ] Session limits enforced
+- [ ] Disk space checks enforced
 - [ ] Transactional uploads work
 - [ ] Rollback on disconnect works
 - [ ] All CRUD operations work
@@ -444,7 +431,7 @@ foreach ($items as $item) {
 - [ ] Path traversal blocked
 - [ ] Hidden files not listed
 - [ ] Invalid filenames rejected
-- [ ] Upload limits enforced
+- [ ] Disk space checks enforced
 - [ ] Operation controls work
 - [ ] Download authentication (if added)
 

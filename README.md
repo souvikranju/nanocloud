@@ -27,7 +27,7 @@ Designed to solve the "How do I send you these photos?" problem.
 > **This application is designed for trusted private networks only.**
 
 * **Trust Model:** This tool operates on the assumption that all users on your local network are trusted. **No native authentication or user access control is implemented.**
-* **Deployment:** **Do not deploy this on a publicly accessible server/internet.** Anyone with the URL will have full access to your files.
+* **Deployment:** **Do not deploy this on a publicly accessible server/internet.** Anyone with the URL will have at least read access to your files.
 * **Hardening:** If you require security, you can implement authentication (such as Basic Auth or Authelia) via your web server (Nginx, Apache, Caddy, etc.) acting as a reverse proxy.
 
 ## 📸 Screenshots
@@ -80,29 +80,17 @@ cd nanocloud
 ```
 
 ### 2. Configure Web Server
-Configure your web server to point to the **`public/`** directory:
+Configure your web server to point to the installation directory:
 
 ```apache
 # Apache
-DocumentRoot /path/to/nanocloud/public
-
-<Directory /path/to/nanocloud/public>
-    AllowOverride All
-    Require all granted
-</Directory>
+DocumentRoot /path/to/nanocloud
 ```
 
 ```nginx
 # Nginx
-root /path/to/nanocloud/public;
-index index.php;
-
-location / {
-    try_files $uri $uri/ /index.php?$query_string;
-}
+root /path/to/nanocloud;
 ```
-
-> ⚠️ **Important**: The web root MUST be the `public/` directory, not the project root. This ensures `src/`, `config/`, and `storage/` are not web-accessible.
 
 > 📖 **Detailed setup instructions:** See [Quick Start Guide](docs/QUICK_START.md)
 
@@ -120,8 +108,6 @@ chown www-data:www-data storage
 
 ### 5. Access
 Open your browser and navigate to your server URL.
-
-> 📖 **Need help?** See [Deployment Guide](docs/DEPLOYMENT.md)
 
 ## 📁 Project Structure
 
@@ -245,25 +231,6 @@ Browser → public/api.php → Security Layer → Service Layer → Response
 - **Service Layer**: Business logic (Directory, File, Upload, Storage services)
 - **Helpers**: Shared utility functions
 
-**Features:**
-- Strict OOP with PSR-12 standards
-- Type safety throughout
-- Zero external dependencies
-- Custom PSR-4 autoloader
-
-### Frontend Architecture
-
-- **Modular ES6 JavaScript**: Clear separation of concerns
-- **State Management**: Reactive updates
-- **Component-Based UI**: Reusable components
-- **Event-Driven**: Efficient event handling
-
-### Styling
-
-- **Modular CSS**: Variables, base, layout, components, utilities, responsive
-- **Mobile-First**: Responsive design
-- **CSS Custom Properties**: Easy theming
-
 > 📖 **Technical details:** See [Architecture Guide](docs/ARCHITECTURE.md)
 
 ## 📚 Documentation
@@ -273,12 +240,9 @@ Browser → public/api.php → Security Layer → Service Layer → Response
 - **[API Documentation](docs/API.md)** - Complete API reference
 - **[Security Guide](docs/SECURITY.md)** - Security best practices and hardening
 - **[Architecture Guide](docs/ARCHITECTURE.md)** - Technical architecture details
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment
-- **[Development Guide](docs/DEVELOPMENT.md)** - Extending and customizing
 - **[Chunked Upload Guide](docs/CHUNKED_UPLOAD.md)** - Chunked upload implementation
 - **[Update System](docs/UPDATES.md)** - Self-update documentation
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Web Root Setup](docs/WEBROOT_COMPATIBILITY.md)** - Web server configuration
 
 ## 📱 Browser Support
 
@@ -301,28 +265,6 @@ Please follow the existing code style and include tests where applicable.
 ## 📄 License
 
 MIT License - Feel free to use and modify for your needs.
-
-```
-Copyright (c) 2024 Souvik Ranju
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
 
 ## 📧 Support
 

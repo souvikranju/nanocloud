@@ -1,7 +1,7 @@
 # NanoCloud - API Documentation
 
 **Last Updated**: February 9, 2026  
-**Version**: 2.0  
+**Version**: 3.0  
 **Audience**: Developers, Integrators
 
 ---
@@ -319,7 +319,8 @@ Upload a file chunk (for large files > 100MB).
 **Example**:
 ```javascript
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
-const uploadId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+// Use deterministic ID for resumability (hash of filename + size + mtime)
+const uploadId = '7d2f9a1b'; // Example deterministic ID
 const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
 for (let i = 0; i < totalChunks; i++) {
@@ -778,7 +779,17 @@ async function uploadFiles(files, targetPath) {
 ```javascript
 async function uploadLargeFile(file, targetPath) {
   const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
-  const uploadId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  
+  // Generate deterministic upload ID based on file metadata
+  // This ensures the same ID is generated if the upload is retried
+  const metadata = `${file.name}-${file.size}-${file.lastModified}-${targetPath}`;
+  let hash = 0;
+  for (let i = 0; i < metadata.length; i++) {
+    hash = ((hash << 5) - hash) + metadata.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const uploadId = (hash >>> 0).toString(16).padStart(8, '0');
+  
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   
   // Check for existing upload
@@ -960,5 +971,3 @@ For API questions or issues:
 **See Also**:
 - [Architecture Documentation](ARCHITECTURE.md)
 - [Security Guide](SECURITY.md)
-- [Development Guide](DEVELOPMENT.md)
-- [API Corrections](API_CORRECTIONS.md) - Detailed correction notes

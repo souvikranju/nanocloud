@@ -469,7 +469,6 @@ The `version.json` file tracks the current version:
 ## See Also
 
 - [Configuration Guide](CONFIGURATION.md) - Configuration options
-- [Deployment Guide](DEPLOYMENT.md) - Production deployment
 - [Troubleshooting](TROUBLESHOOTING.md) - Common issues
 
 ---

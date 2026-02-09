@@ -2,11 +2,10 @@
 /**
  * Upload Service
  * 
- * Handles file uploads with transactional support, including:
+ * Handles file uploads, including:
  * - Multi-file uploads
  * - Folder structure preservation
  * - Chunked uploads for unlimited file sizes
- * - Rollback on client disconnect
  */
 
 declare(strict_types=1);
@@ -25,14 +24,10 @@ use function NanoCloud\Helpers\ensureDirectoryExists;
 class UploadService
 {
     private StorageService $storageService;
-    private array $inflightFiles = [];
     
     public function __construct()
     {
         $this->storageService = new StorageService();
-        
-        // Track in-flight temporary files for cleanup
-        register_shutdown_function([$this, 'cleanup']);
     }
     
     /**
@@ -94,8 +89,6 @@ class UploadService
         }
         
         $results = [];
-        $tempDir = Config::getTempDir();
-        ensureDirectoryExists($tempDir);
         
         // Process each file
         foreach ($names as $idx => $originalName) {
@@ -105,8 +98,7 @@ class UploadService
                 (int)($sizes[$idx] ?? 0),
                 $errors[$idx] ?? UPLOAD_ERR_NO_FILE,
                 $relativePaths[$idx] ?? '',
-                $targetDir,
-                $tempDir
+                $targetDir
             );
             
             $results[] = $result;
@@ -129,7 +121,6 @@ class UploadService
      * @param int $error PHP upload error code
      * @param string $relativePath Relative path for folder uploads
      * @param string $targetDir Target directory absolute path
-     * @param string $tempDir Temporary directory for staging
      * @return array Result for this file
      */
     private function processFile(
@@ -138,8 +129,7 @@ class UploadService
         int $size,
         int $error,
         string $relativePath,
-        string $targetDir,
-        string $tempDir
+        string $targetDir
     ): array {
         $result = [
             'filename' => $originalName,
@@ -197,35 +187,11 @@ class UploadService
             return $result;
         }
         
-        // Transactional move: stage in temp, then atomic rename
-        $tmpPartName = basename($sanitizedPath);
-        $tmpPart = $tempDir . DIRECTORY_SEPARATOR . uniqid('up_', true) . '_' . $tmpPartName . '.part';
-        $this->inflightFiles[] = $tmpPart;
-        
-        // Move to temp staging area
-        if (!@move_uploaded_file($tmpName, $tmpPart)) {
+        // Move uploaded file directly to destination
+        if (!@move_uploaded_file($tmpName, $finalPath)) {
             $result['message'] = 'Failed to move uploaded file.';
-            $this->removeInflight($tmpPart);
             return $result;
         }
-        
-        // Check if client aborted
-        if (Request::isAborted()) {
-            @unlink($tmpPart);
-            $this->removeInflight($tmpPart);
-            $result['message'] = 'Upload aborted by client; rolled back.';
-            return $result;
-        }
-        
-        // Finalize: atomic rename
-        if (!@rename($tmpPart, $finalPath)) {
-            @unlink($tmpPart);
-            $this->removeInflight($tmpPart);
-            $result['message'] = 'Failed to finalize uploaded file.';
-            return $result;
-        }
-        
-        $this->removeInflight($tmpPart);
         
         // Apply permissions
         applyPermissions($finalPath, false);
@@ -251,31 +217,6 @@ class UploadService
         }
         
         return Sanitizer::sanitizeFilename($filename);
-    }
-    
-    /**
-     * Remove a file from inflight tracking
-     * 
-     * @param string $path File path to remove
-     */
-    private function removeInflight(string $path): void
-    {
-        $this->inflightFiles = array_filter(
-            $this->inflightFiles,
-            fn($p) => $p !== $path
-        );
-    }
-    
-    /**
-     * Cleanup inflight temporary files on shutdown
-     */
-    public function cleanup(): void
-    {
-        foreach ($this->inflightFiles as $file) {
-            if (file_exists($file)) {
-                @unlink($file);
-            }
-        }
     }
     
     /**

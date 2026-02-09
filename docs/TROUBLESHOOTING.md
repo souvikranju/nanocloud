@@ -200,9 +200,6 @@ $FILE_GROUP = null;
    ```bash
    # Check if .htaccess exists
    ls -la public/.htaccess
-   
-   # If missing, recreate it
-   # (See DEPLOYMENT.md for content)
    ```
 
 3. **Rewrite Module Disabled**
@@ -505,9 +502,7 @@ When reporting issues, include:
 ## See Also
 
 - [Configuration Guide](CONFIGURATION.md) - Configuration options
-- [Deployment Guide](DEPLOYMENT.md) - Setup instructions
 - [Updates Guide](UPDATES.md) - Update system
-- [Development Guide](DEVELOPMENT.md) - For developers
 
 ---
 

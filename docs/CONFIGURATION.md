@@ -374,9 +374,9 @@ When operations are disabled:
 - When `READ_ONLY = true`: "System is read-only"
 - When specific feature disabled: "[Feature] disabled by administrator"
 
-## PHP Settings
+## PHP Settings (Optional)
 
-In addition to NanoCloud configuration, you need to configure PHP:
+In addition to NanoCloud configuration, you may need to configure PHP:
 
 ### php.ini Settings
 
@@ -426,7 +426,7 @@ sudo systemctl restart apache2
 sudo systemctl restart php8.0-fpm
 ```
 
-## Frontend Configuration
+## Frontend Configuration (Optional)
 
 Frontend constants are in `public/assets/js/constants.js`:
 
@@ -578,7 +578,6 @@ chown www-data:www-data storage
 ## See Also
 
 - [Quick Start Guide](QUICK_START.md) - Initial setup
-- [Deployment Guide](DEPLOYMENT.md) - Production deployment
 - [Troubleshooting](TROUBLESHOOTING.md) - Common issues
 - [Architecture Guide](ARCHITECTURE.md) - How configuration is loaded
 
