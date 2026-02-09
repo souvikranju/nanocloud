@@ -315,37 +315,37 @@
 }
 
 .file-icon.folder, .file-list-icon.folder {
-  background: linear-gradient(135deg, var(--primary-400), var(--primary-600));
+  background: var(--gradient-primary);
   color: white;
 }
 
 .file-icon.image, .file-list-icon.image {
-  background: linear-gradient(135deg, var(--success-400), var(--success-600));
+  background: var(--gradient-success);
   color: white;
 }
 
 .file-icon.video, .file-list-icon.video {
-  background: linear-gradient(135deg, var(--error-400), var(--error-600));
+  background: var(--gradient-error);
   color: white;
 }
 
 .file-icon.audio, .file-list-icon.audio {
-  background: linear-gradient(135deg, var(--secondary-400), var(--secondary-600));
+  background: var(--gradient-secondary);
   color: white;
 }
 
 .file-icon.document, .file-list-icon.document {
-  background: linear-gradient(135deg, var(--warning-400), var(--warning-600));
+  background: var(--gradient-warning);
   color: white;
 }
 
 .file-icon.archive, .file-list-icon.archive {
-  background: linear-gradient(135deg, var(--gray-400), var(--gray-600));
+  background: var(--gradient-gray);
   color: white;
 }
 
 .file-icon.default, .file-list-icon.default {
-  background: linear-gradient(135deg, var(--gray-300), var(--gray-500));
+  background: var(--gradient-gray);
   color: white;
 }
 
@@ -454,7 +454,7 @@
   width: 56px;
   height: 56px;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+  background: var(--gradient-primary);
   color: white;
   font-size: 24px;
   font-weight: var(--font-weight-bold);
