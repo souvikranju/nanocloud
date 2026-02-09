@@ -80,17 +80,29 @@ cd nanocloud
 ```
 
 ### 2. Configure Web Server
-Configure your web server to point to the installation directory:
+Configure your web server to point to the **`public/`** directory:
 
 ```apache
 # Apache
-DocumentRoot /path/to/nanocloud
+DocumentRoot /path/to/nanocloud/public
+
+<Directory /path/to/nanocloud/public>
+    AllowOverride All
+    Require all granted
+</Directory>
 ```
 
 ```nginx
 # Nginx
-root /path/to/nanocloud;
+root /path/to/nanocloud/public;
+index index.php;
+
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
 ```
+
+> ⚠️ **Important**: The web root MUST be the `public/` directory, not the project root. This ensures `src/`, `config/`, and `storage/` are not web-accessible.
 
 > 📖 **Detailed setup instructions:** See [Quick Start Guide](docs/QUICK_START.md)
 
@@ -258,9 +270,12 @@ Browser → public/api.php → Security Layer → Service Layer → Response
 
 - **[Quick Start Guide](docs/QUICK_START.md)** - Fast installation and setup
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration options
+- **[API Documentation](docs/API.md)** - Complete API reference
+- **[Security Guide](docs/SECURITY.md)** - Security best practices and hardening
 - **[Architecture Guide](docs/ARCHITECTURE.md)** - Technical architecture details
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment
 - **[Development Guide](docs/DEVELOPMENT.md)** - Extending and customizing
+- **[Chunked Upload Guide](docs/CHUNKED_UPLOAD.md)** - Chunked upload implementation
 - **[Update System](docs/UPDATES.md)** - Self-update documentation
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Web Root Setup](docs/WEBROOT_COMPATIBILITY.md)** - Web server configuration

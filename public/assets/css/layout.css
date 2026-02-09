@@ -11,7 +11,7 @@
 
 /* Header Section */
 .header-section {
-  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  background: var(--gradient-primary-alt);
   color: white;
   padding: var(--space-4) 0;
   margin-bottom: var(--space-6);
