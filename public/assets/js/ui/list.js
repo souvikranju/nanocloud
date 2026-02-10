@@ -15,8 +15,7 @@ import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoR
 import { showError } from './toast.js';
 import { 
   createFileIconElement,
-  createListIconElement,
-  isViewableInBrowser
+  createListIconElement
 } from './fileIcons.js';
 import { formatBytes, formatDate } from '../utils.js';
 
@@ -924,23 +923,8 @@ function handleItemClick(entry) {
     const path = getCurrentPath();
     const downloadUrl = DOWNLOAD_BASE + (path ? (`?path=${encodeURIComponent(path)}&file=`) : ('?file=')) + encodeURIComponent(entry.name);
     console.log(downloadUrl);
-    // Create a temporary link element
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    
-    if (isViewableInBrowser(entry.name)) {
-      // Open viewable files in new tab
-      link.target = '_blank';
-    } else {
-      // Force download for non-viewable files
-      link.setAttribute('download', entry.name);
-    }
-    
-    // Trigger the link click
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Open file in new tab - backend will handle Content-Disposition (inline vs attachment)
+    window.open(downloadUrl, '_blank');
   }
 }
 
