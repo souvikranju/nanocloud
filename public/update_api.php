@@ -31,11 +31,28 @@ $PRESERVE_PATHS = [
     '.gitignore',
 ];
 
+// Files/directories that belong to NanoCloud (Whitelisted for backup)
+$NANOCLOUD_PATHS = [
+    'src',
+    'public',
+    'config',
+    'docs',
+    'index.php',
+    'version.json',
+    'LICENSE',
+    'README.md',
+    '.htaccess',
+    'lighttpd.conf',
+    '.gitignore'
+];
+
 // Core files that must exist after update
 $REQUIRED_FILES = [
     'public/index.php',
     'public/api.php',
-    'src/autoload.php'
+    'public/update_api.php',
+    'src/autoload.php',
+    'version.json'
 ];
 
 /**
@@ -219,7 +236,7 @@ function remove_lock(): void
  */
 function create_backup(): array
 {
-    global $PRESERVE_PATHS;
+    global $PRESERVE_PATHS, $NANOCLOUD_PATHS;
     
     if (!is_dir(BACKUP_DIR)) {
         if (!@mkdir(BACKUP_DIR, 0755, true)) {
@@ -238,29 +255,54 @@ function create_backup(): array
     try {
         $phar = new PharData($backupFile);
         
-        $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($rootDir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-        
-        foreach ($files as $file) {
-            $filePath = $file->getRealPath();
-            $relativePath = substr($filePath, strlen($rootDir) + 1);
+        foreach ($NANOCLOUD_PATHS as $path) {
+            $fullPath = $rootDir . '/' . $path;
             
-            $shouldSkip = false;
-            foreach ($PRESERVE_PATHS as $preservePath) {
-                if (strpos($relativePath, $preservePath) === 0) {
-                    $shouldSkip = true;
-                    break;
-                }
-            }
-            
-            if ($shouldSkip) {
+            if (!file_exists($fullPath)) {
                 continue;
             }
             
-            if (!$file->isDir()) {
-                $phar->addFile($filePath, $relativePath);
+            if (is_dir($fullPath)) {
+                $files = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($fullPath, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::SELF_FIRST
+                );
+                
+                foreach ($files as $file) {
+                    $filePath = $file->getRealPath();
+                    $relativePath = substr($filePath, strlen($rootDir) + 1);
+                    
+                    $shouldSkip = false;
+                    foreach ($PRESERVE_PATHS as $preservePath) {
+                        if (strpos($relativePath, $preservePath) === 0) {
+                            $shouldSkip = true;
+                            break;
+                        }
+                    }
+                    
+                    if ($shouldSkip) {
+                        continue;
+                    }
+                    
+                    if ($file->isDir()) {
+                        $phar->addEmptyDir($relativePath);
+                    } else {
+                        $phar->addFile($filePath, $relativePath);
+                    }
+                }
+            } else {
+                // It's a file
+                $shouldSkip = false;
+                foreach ($PRESERVE_PATHS as $preservePath) {
+                    if ($path === $preservePath) {
+                        $shouldSkip = true;
+                        break;
+                    }
+                }
+                
+                if (!$shouldSkip) {
+                    $phar->addFile($fullPath, $path);
+                }
             }
         }
     } catch (Exception $e) {
