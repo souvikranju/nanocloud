@@ -51,25 +51,24 @@ The `public/download.php` file implements:
 
 1. **Extension-Based MIME Type Mapping**: A comprehensive mapping ensures correct MIME types are sent to browsers, even when PHP's `mime_content_type()` returns generic types.
 
-2. **HTTP Range Request Support**: Critical for video/audio seeking. The server responds with `206 Partial Content` when browsers request specific byte ranges.
+2. **Streaming Logic**: The `shouldStreamInBrowser()` function determines whether a file should be streamed inline or forced to download based on its extension.
 
-3. **Proper Headers**:
+3. **HTTP Range Request Support**: Critical for video/audio seeking. The server responds with `206 Partial Content` when browsers request specific byte ranges.
+
+4. **Proper Headers**:
    - `Content-Type`: Correct MIME type for the file
-   - `Content-Disposition: inline`: Tells browser to display, not download
+   - `Content-Disposition`: Set to `inline` for viewable files (images, video, audio, PDF) or `attachment` for others (forcing download)
    - `Accept-Ranges: bytes`: Enables seeking in media players
    - `Cache-Control`: Optimizes repeated access
 
-4. **Streaming with Chunked Transfer**: Files are streamed in 8KB chunks to handle large files efficiently without loading them entirely into memory.
+5. **Streaming with Chunked Transfer**: Files are streamed in 8KB chunks to handle large files efficiently without loading them entirely into memory.
 
 ### Frontend (JavaScript)
 
-The `public/assets/js/ui/fileIcons.js` file implements:
+The frontend implementation is simplified to:
 
-1. **Viewability Detection**: The `isViewableInBrowser()` function determines which files should open in the browser vs. force download.
-
-2. **Smart Opening**: Files marked as viewable open in a new tab with `target="_blank"`, allowing the browser's native player to handle them.
-
-3. **Force Download List**: Only truly incompatible formats (AVI, WMV, FLV) and executables are forced to download.
+1. **Universal Opening**: All file clicks open the download URL in a new tab (`window.open(url, '_blank')`).
+2. **Backend Control**: The browser respects the `Content-Disposition` header sent by the backend to decide whether to display the content inline or download it as a file.
 
 ## Browser Compatibility
 
@@ -117,11 +116,12 @@ This affects streaming performance. For local networks, keep it at 0 (unlimited)
 
 ### Disabling In-Browser Viewing
 
-If you prefer to force downloads for all media files, modify `public/assets/js/ui/fileIcons.js`:
+If you prefer to force downloads for all media files, modify the `shouldStreamInBrowser` function in `public/download.php`:
 
-```javascript
-export function isViewableInBrowser(filename) {
-  return false; // Force download for everything
+```php
+function shouldStreamInBrowser(string $filename): bool
+{
+    return false; // Force download for everything
 }
 ```
 
@@ -141,8 +141,8 @@ export function isViewableInBrowser(filename) {
 - **Check MIME type**: Open browser DevTools → Network tab → Check the `Content-Type` header
 
 ### Video Downloads Instead of Playing
-- **Verify extension is in whitelist**: Check `isViewableInBrowser()` in `fileIcons.js`
-- **Check MIME type mapping**: Verify the extension is in `getMimeTypeForFile()` in `download.php`
+- **Verify extension is in whitelist**: Check `shouldStreamInBrowser()` in `public/download.php`
+- **Check MIME type mapping**: Verify the extension is in `getMimeTypeForFile()` in `public/download.php`
 
 ### Seeking Doesn't Work
 - **Verify Range support**: Check that `Accept-Ranges: bytes` header is present

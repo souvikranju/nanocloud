@@ -110,50 +110,6 @@ export function getFileIconClass(type) {
 }
 
 /**
- * Check if file type is viewable in browser
- * @param {string} filename
- * @returns {boolean}
- */
-export function isViewableInBrowser(filename) {
-  if (!filename) return false;
-  
-  const ext = filename.toLowerCase().split('.').pop();
-  
-  // Files that should NEVER be opened in browser (force download)
-  const forceDownloadExts = ['avi', 'wmv', 'flv', 'exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm'];
-  if (forceDownloadExts.includes(ext)) {
-    return false;
-  }
-  
-  // Images
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) {
-    return true;
-  }
-  
-  // Videos (only browser-supported formats)
-  if (['mp4', 'webm', 'ogg', 'mov', 'm4v', '3gp', 'mkv'].includes(ext)) {
-    return true;
-  }
-  
-  // Audio
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(ext)) {
-    return true;
-  }
-  
-  // Text files
-  if (['txt', 'json', 'xml', 'html', 'css', 'js', 'md'].includes(ext)) {
-    return true;
-  }
-  
-  // PDFs - can be viewed inline in browser
-  if (ext === 'pdf') {
-    return true;
-  }
-  
-  return false;
-}
-
-/**
  * Create file icon element for grid view
  * @param {string} filename
  * @param {string} type - 'file' or 'dir'

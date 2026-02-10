@@ -55,10 +55,13 @@ if (!file_exists($filePath) || !is_file($filePath)) {
 $fileSize = filesize($filePath);
 $mimeType = getMimeTypeForFile($filePath, $sanitizedFilename);
 
+// Determine Content-Disposition based on file type
+$contentDisposition = shouldStreamInBrowser($sanitizedFilename) ? 'inline' : 'attachment';
+
 // Set headers
 header('Content-Type: ' . $mimeType);
 header('Content-Length: ' . $fileSize);
-header('Content-Disposition: inline; filename="' . addslashes($sanitizedFilename) . '"');
+header('Content-Disposition: ' . $contentDisposition . '; filename="' . addslashes($sanitizedFilename) . '"');
 header('Accept-Ranges: bytes');
 header('Cache-Control: public, max-age=3600');
 
@@ -116,6 +119,55 @@ if ($rangeHeader !== '' && preg_match('/bytes=(\d+)-(\d*)/', $rangeHeader, $matc
     }
     
     fclose($fp);
+}
+
+/**
+ * Determine if file should be streamed inline in browser
+ * 
+ * @param string $filename Filename with extension
+ * @return bool True if file should be streamed inline, false to force download
+ */
+function shouldStreamInBrowser(string $filename): bool
+{
+    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    
+    // Files that should NEVER be opened in browser (force download)
+    $forceDownloadExts = ['avi', 'wmv', 'flv', 'exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm'];
+    if (in_array($ext, $forceDownloadExts, true)) {
+        return false;
+    }
+    
+    // Images - viewable in browser
+    $imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+    if (in_array($ext, $imageExts, true)) {
+        return true;
+    }
+    
+    // Videos - only browser-supported formats
+    $videoExts = ['mp4', 'webm', 'ogg', 'mov', 'm4v', '3gp', 'mkv'];
+    if (in_array($ext, $videoExts, true)) {
+        return true;
+    }
+    
+    // Audio - browser-supported formats
+    $audioExts = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'];
+    if (in_array($ext, $audioExts, true)) {
+        return true;
+    }
+    
+    // Text files - viewable in browser
+    $textExts = ['txt', 'json', 'xml', 'html', 'css', 'js', 'md'];
+    if (in_array($ext, $textExts, true)) {
+        return true;
+    }
+    
+    // PDFs - can be viewed inline in browser
+    if ($ext === 'pdf') {
+        return true;
+    }
+    
+    // Default: force download for unknown types
+    return false;
 }
 
 /**
