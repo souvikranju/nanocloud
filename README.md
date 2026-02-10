@@ -41,6 +41,7 @@ Designed to solve the "How do I send you these photos?" problem.
 
 ### Mobile Interface
 ![Mobile View - File Browser](public/assets/images/mobile-file-browser.png)
+
 *Touch-optimized file browser with responsive design*
 
 ## ✨ Features
