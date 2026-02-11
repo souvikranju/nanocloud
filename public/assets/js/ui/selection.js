@@ -33,14 +33,14 @@ export function clearSelection() {
 
 /**
  * Toggle item selection
- * @param {string} itemName
+ * @param {string} itemId
  * @param {boolean} selected
  */
-export function toggleItemSelection(itemName, selected) {
+export function toggleItemSelection(itemId, selected) {
   if (selected) {
-    selectedItems.add(itemName);
+    selectedItems.add(itemId);
   } else {
-    selectedItems.delete(itemName);
+    selectedItems.delete(itemId);
   }
   updateSelectionUI();
 }
@@ -51,7 +51,8 @@ export function toggleItemSelection(itemName, selected) {
  */
 export function selectAll(items) {
   items.forEach(item => {
-    selectedItems.add(item.name);
+    // Use fullPath for deep search items, name for normal items
+    selectedItems.add(item.fullPath || item.name);
   });
   updateSelectionUI();
 }
@@ -66,11 +67,11 @@ export function deselectAll() {
 
 /**
  * Check if item is selected
- * @param {string} itemName
+ * @param {string} itemId
  * @returns {boolean}
  */
-export function isSelected(itemName) {
-  return selectedItems.has(itemName);
+export function isSelected(itemId) {
+  return selectedItems.has(itemId);
 }
 
 /**
@@ -89,39 +90,13 @@ function updateSelectionUI() {
     }
   }
   
-  // Update visual selection state of all items in the DOM
-  // Update grid view items
-  const gridItems = document.querySelectorAll('.file-card');
-  gridItems.forEach(item => {
-    const itemName = item.dataset.name;
-    if (itemName) {
-      if (selectedItems.has(itemName)) {
-        item.classList.add('selected');
-      } else {
-        item.classList.remove('selected');
-      }
-    }
-  });
+  // Update visual selection state of all items in the DOM based on dataset.id (or fallback to name)
+  const allItems = document.querySelectorAll('.file-card, .file-list-item, .search-result-item');
   
-  // Update list view items
-  const listItems = document.querySelectorAll('.file-list-item');
-  listItems.forEach(item => {
-    const itemName = item.dataset.name;
-    if (itemName) {
-      if (selectedItems.has(itemName)) {
-        item.classList.add('selected');
-      } else {
-        item.classList.remove('selected');
-      }
-    }
-  });
-  
-  // Update search result items (deep search)
-  const searchItems = document.querySelectorAll('.search-result-item');
-  searchItems.forEach(item => {
-    const itemName = item.dataset.name;
-    if (itemName) {
-      if (selectedItems.has(itemName)) {
+  allItems.forEach(item => {
+    const itemId = item.dataset.id || item.dataset.name;
+    if (itemId) {
+      if (selectedItems.has(itemId)) {
         item.classList.add('selected');
       } else {
         item.classList.remove('selected');

@@ -593,6 +593,51 @@ export function isSearchActive() {
 }
 
 /**
+ * Remove an item from search results (used after delete)
+ * @param {string} id - Item ID (fullPath or name)
+ */
+export function removeSearchResult(id) {
+  if (searchMode !== 'deep') return;
+  
+  // Filter out the deleted item
+  deepSearchResults = deepSearchResults.filter(item => (item.fullPath || item.name) !== id);
+  
+  // Trigger re-render
+  if (window.filterSortCallback) {
+    window.filterSortCallback();
+  }
+}
+
+/**
+ * Rename an item in search results (used after rename)
+ * @param {string} id - Item ID (fullPath or name)
+ * @param {string} newName - New filename
+ */
+export function renameSearchResult(id, newName) {
+  if (searchMode !== 'deep') return;
+  
+  const item = deepSearchResults.find(item => (item.fullPath || item.name) === id);
+  if (item) {
+    item.name = newName;
+    // Update fullPath if it exists (Deep Search items have it)
+    if (item.fullPath) {
+      // Reconstruct fullPath with new name
+      // displayPath is the parent folder path
+      if (item.displayPath) {
+        item.fullPath = `${item.displayPath}/${newName}`;
+      } else {
+        item.fullPath = newName; // Root
+      }
+    }
+    
+    // Trigger re-render
+    if (window.filterSortCallback) {
+      window.filterSortCallback();
+    }
+  }
+}
+
+/**
  * Reset search state
  */
 export function resetSearch() {
