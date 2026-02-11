@@ -8,30 +8,50 @@
 
 declare(strict_types=1);
 
+// ============================================
+// STORAGE CONFIGURATION
+// ============================================
 // Storage root directory (absolute path)
 // Default: storage directory in project root
 $STORAGE_ROOT = dirname(__DIR__) . '/storage';
 
+// ============================================
+// DOWNLOAD CONFIGURATION
+// ============================================
 // Download rate limit in MB/s (0 = unlimited)
 $DOWNLOAD_RATE_LIMIT_MB = 0;
 
-// File and directory permissions (octal notation)
+// ============================================
+// PERMISSIONS
+// ============================================
+// File and directory permissions for uploaded/created items
+// Directory permissions (octal notation)
 $DIR_PERMISSIONS = 0755;  // rwxr-xr-x
+
+// File permissions (octal notation)
 $FILE_PERMISSIONS = 0644; // rw-r--r--
 
-// File ownership (set to null to skip, requires appropriate server permissions)
+// ============================================
+// OWNERSHIP (requires appropriate privileges)
+// ============================================
+// Change owner for uploaded/created files and directories
 $FILE_OWNER = null;
 $FILE_GROUP = null;
 
+// ============================================
+// UPLOAD CONFIGURATION
+// ============================================
 // Chunked upload configuration
-// Directory for temporary chunk storage (absolute path)
+// Temporary directory for chunk storage
 // Default: system temp directory + '/nanocloud-chunks'
 $CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
 
 // Hours to keep incomplete chunk uploads before cleanup
 $CHUNK_STALE_HOURS = 2;
 
-// Operation control flags
+// ============================================
+// OPERATION CONTROL
+// ============================================
 // Master read-only switch (overrides all other settings)
 $READ_ONLY = false;
 
