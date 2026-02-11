@@ -3,40 +3,70 @@
  * Local Configuration Example
  * 
  * Copy this file to config/local.php and customize your settings.
+ * Enable only the configuration you need to modify from the defaults.
+ * Default configuration (DO NOT modify): defaults.php.
  * The local.php file is gitignored and will be preserved during updates.
  */
 
 declare(strict_types=1);
 
+// ============================================
+// STORAGE CONFIGURATION
+// ============================================
 // Storage root directory (absolute path)
 // Example: $STORAGE_ROOT = '/var/www/nanocloud-storage';
-$STORAGE_ROOT = dirname(__DIR__) . '/storage';
+// $STORAGE_ROOT = dirname(__DIR__) . '/storage';
 
+// ============================================
+// DOWNLOAD CONFIGURATION
+// ============================================
 // Download rate limit in MB/s (0 = unlimited)
-$DOWNLOAD_RATE_LIMIT_MB = 0;
+// $DOWNLOAD_RATE_LIMIT_MB = 0;
 
-// File and directory permissions
-$DIR_PERMISSIONS = 0755;
-$FILE_PERMISSIONS = 0644;
+// ============================================
+// PERMISSIONS
+// ============================================
+// File and directory permissions for uploaded/created items
+// Directory permissions (octal notation)
+// 0755 = rwxr-xr-x (owner: full, group/others: read+execute)
+// 0777 = rwxrwxrwx (full access for everyone)
+// $DIR_PERMISSIONS = 0755;
 
-// File ownership (requires appropriate server permissions)
+// File permissions (octal notation)
+// 0644 = rw-r--r-- (owner: read+write, group/others: read-only)
+// 0666 = rw-rw-rw- (read+write for everyone)
+// $FILE_PERMISSIONS = 0644;
+
+// ============================================
+// OWNERSHIP (requires appropriate privileges)
+// ============================================
+// Change owner for uploaded/created files and directories
+// Leave null to keep default web server user
 // Example: $FILE_OWNER = 'www-data';
 // Example: $FILE_GROUP = 'www-data';
-$FILE_OWNER = null;
-$FILE_GROUP = null;
+// $FILE_OWNER = null;
+// $FILE_GROUP = null;
 
+// ============================================
+// UPLOAD CONFIGURATION
+// ============================================
 // Chunked upload configuration
 // Temporary directory for chunk storage
 // Example: $CHUNK_TEMP_DIR = '/var/tmp/nanocloud-chunks';
-$CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
+// $CHUNK_TEMP_DIR = sys_get_temp_dir() . '/nanocloud-chunks';
 
 // Hours to keep incomplete uploads before cleanup
 // Example: $CHUNK_STALE_HOURS = 4; // Keep for 4 hours
-$CHUNK_STALE_HOURS = 2;
+// $CHUNK_STALE_HOURS = 2;
 
-// Operation control
-$READ_ONLY = false;
-$UPLOAD_ENABLED = true;
-$DELETE_ENABLED = true;
-$RENAME_ENABLED = true;
-$MOVE_ENABLED = true;
+// ============================================
+// OPERATION CONTROL
+// ============================================
+// Master read-only switch (overrides all other settings)
+// $READ_ONLY = false;
+
+// Individual operation controls (only evaluated when READ_ONLY = false)
+// $UPLOAD_ENABLED = true;  // Allow file/folder uploads and folder creation
+// $DELETE_ENABLED = true;  // Allow file/folder deletion
+// $RENAME_ENABLED = true;  // Allow file/folder renaming
+// $MOVE_ENABLED = true;    // Allow file/folder moving
