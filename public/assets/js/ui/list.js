@@ -1,6 +1,20 @@
-// ui/list.js
-// File list rendering with grid/list views
-// Focused on rendering responsibilities only
+/**
+ * @file public/assets/js/ui/list.js
+ * @module UI/List
+ * 
+ * @description
+ * Main controller for the file list UI component. This module is responsible for:
+ * 1. Rendering file items in Grid or List view.
+ * 2. Managing view state (Grid vs List) and persistence.
+ * 3. Handling user interactions via Event Delegation (clicks, double-clicks, right-clicks).
+ * 4. Integrating with other UI subsystems (Selection, Context Menu, Search, Filter/Sort).
+ * 5. Managing Loading states and Empty states.
+ * 
+ * Key Architecture Pattern:
+ * - **Event Delegation**: Instead of binding listeners to thousands of individual file items,
+ *   a single listener on the parent container (#fileList) handles all item interactions.
+ *   This significantly improves performance and memory usage for large directories.
+ */
 
 import { 
   DOWNLOAD_BASE,
@@ -29,6 +43,7 @@ import {
   deselectAll
 } from './selection.js';
 import { initTouchHandlers, updateTouchHandlerItems } from './touchHandlers.js';
+import { initContextMenu, showContextMenu, hideContextMenu } from './contextMenu.js';
 import { initKeyboardShortcuts, updateKeyboardShortcutItems } from './keyboardShortcuts.js';
 import { 
   deleteItem, 
@@ -45,27 +60,50 @@ import {
   getSearchMode
 } from './filterSort.js';
 
-// DOM References
-/** @type {HTMLElement|null} */ let fileListEl = null;
-/** @type {HTMLElement|null} */ let emptyStateEl = null;
-/** @type {HTMLElement|null} */ let breadcrumbsEl = null;
-/** @type {HTMLElement|null} */ let refreshBtn = null;
-/** @type {HTMLElement|null} */ let storageTextEl = null;
-/** @type {HTMLElement|null} */ let storageBarEl = null;
-/** @type {HTMLElement|null} */ let listLoadingEl = null;
-/** @type {HTMLElement|null} */ let upBtn = null;
-/** @type {HTMLElement|null} */ let gridViewBtn = null;
-/** @type {HTMLElement|null} */ let listViewBtn = null;
+// ==========================================
+// DOM References & State
+// ==========================================
 
-// State
+/** @type {HTMLElement|null} Container for file items (UL/DIV) */ 
+let fileListEl = null;
+/** @type {HTMLElement|null} Empty state placeholder */
+let emptyStateEl = null;
+/** @type {HTMLElement|null} Breadcrumbs navigation container */
+let breadcrumbsEl = null;
+/** @type {HTMLElement|null} Refresh button element */
+let refreshBtn = null;
+/** @type {HTMLElement|null} Text displaying storage usage */
+let storageTextEl = null;
+/** @type {HTMLElement|null} Visual bar for storage usage */
+let storageBarEl = null;
+/** @type {HTMLElement|null} Loading spinner container */
+let listLoadingEl = null;
+/** @type {HTMLElement|null} "Up" navigation button */
+let upBtn = null;
+/** @type {HTMLElement|null} Grid view toggle button */
+let gridViewBtn = null;
+/** @type {HTMLElement|null} List view toggle button */
+let listViewBtn = null;
+
+// Application State
 let currentViewMode = VIEW_MODE_LIST; // Default to list view
-let currentItems = [];
-let rawItems = []; // Store raw items from API before filtering/sorting
-let currentSearchMode = 'normal'; // 'normal', 'quick', or 'deep'
+let currentItems = [];                // Currently rendered items (filtered/sorted)
+let rawItems = [];                    // Raw items from API before filtering
+let currentSearchMode = 'normal';     // 'normal', 'quick', or 'deep'
 
 /**
- * Initialize DOM references for list UI
- * @param {Object} refs - DOM element references
+ * Initialize the List UI module.
+ * Sets up DOM references, event listeners, and integrates with other modules.
+ * 
+ * @param {Object} refs - Map of DOM elements required by this module
+ * @param {HTMLElement} [refs.fileListEl] - Main list container
+ * @param {HTMLElement} [refs.emptyStateEl] - Empty state container
+ * @param {HTMLElement} [refs.breadcrumbsEl] - Breadcrumbs container
+ * @param {HTMLElement} [refs.refreshBtn] - Refresh button
+ * @param {HTMLElement} [refs.storageTextEl] - Storage text
+ * @param {HTMLElement} [refs.storageBarEl] - Storage bar
+ * @param {HTMLElement} [refs.listLoadingEl] - Loading indicator
+ * @param {HTMLElement} [refs.upBtn] - Up button
  */
 export function initList(refs) {
   fileListEl = refs.fileListEl || null;
@@ -77,33 +115,35 @@ export function initList(refs) {
   listLoadingEl = refs.listLoadingEl || null;
   upBtn = refs.upBtn || null;
   
-  // Get additional UI elements
+  // Get additional UI elements directly
   gridViewBtn = document.getElementById('gridViewBtn');
   listViewBtn = document.getElementById('listViewBtn');
   
-  // Load saved view preference first
+  // Load saved view preference first (localStorage)
   loadViewPreference();
   
-  // Setup view toggle handlers
+  // Setup view toggle handlers (Grid/List)
   setupViewToggle();
   
-  // Initialize new modules
+  // Initialize Selection Module integration
   initSelection({
     selectionBar: document.getElementById('selectionBar'),
     selectionInfo: document.getElementById('selectionInfo')
   });
   
-  initTouchHandlers(fileListEl, currentItems, handleItemClick);
+  // Initialize Touch/Mobile support (Long-press)
+  initTouchHandlers(fileListEl, currentItems, handleItemClick, buildContextMenuItems);
   
+  // Initialize Keyboard Shortcuts
   initKeyboardShortcuts(currentItems, deleteSelectedItems, renameSelectedItem);
   
-  // Setup selection bar buttons
+  // Setup Selection Bar buttons (Select All, Delete, etc.)
   setupSelectionButtons();
   
-  // Register this module's fetchAndRenderList as the auto-refresh callback
+  // Register Auto-Refresh callback
   registerAutoRefresh((requestId) => fetchAndRenderListWithTracking(requestId));
   
-  // Initialize filter and sort module
+  // Initialize Filter/Sort/Search module
   initFilterSort({
     searchInput: document.getElementById('searchInput'),
     clearSearchBtn: document.getElementById('clearSearchBtn'),
@@ -112,14 +152,249 @@ export function initList(refs) {
     listViewBtn: document.getElementById('listViewBtn')
   });
   
-  // Set up callback for filter/sort changes
+  // Set up callback for filter/sort changes to trigger re-render
   window.filterSortCallback = () => {
     applyFilterSortAndRender();
   };
+  
+  // Initialize Context Menu module
+  initContextMenu();
+  
+  // Setup Event Delegation for Desktop
+  if (fileListEl) {
+    // Handle right-click context menu
+    fileListEl.addEventListener('contextmenu', handleContextMenu);
+    // Handle all item clicks (navigation, selection, actions)
+    fileListEl.addEventListener('click', handleListClick);
+  }
 }
 
 /**
- * Setup selection bar buttons
+ * Handle list item interactions via Event Delegation.
+ * Using a single listener on the parent container avoids attaching thousands of listeners 
+ * to individual items, significantly improving performance.
+ * 
+ * Handles:
+ * 1. Delete button clicks (stop propagation, delete item)
+ * 2. Breadcrumb links in Deep Search (navigation)
+ * 3. Item selection (Ctrl/Cmd+Click)
+ * 4. Item navigation/download (Click)
+ * 
+ * @param {MouseEvent} event - The click event
+ */
+function handleListClick(event) {
+  // 1. Handle Delete Button Click
+  // Check if click originated from a delete button
+  const deleteBtn = event.target.closest('.btn-danger');
+  if (deleteBtn) {
+    event.stopPropagation();
+    const itemEl = deleteBtn.closest('.file-card, .file-list-item, .search-result-item');
+    if (itemEl) {
+      const itemName = itemEl.dataset.name;
+      const item = currentItems.find(i => i.name === itemName);
+      if (item) {
+        deleteItem(item);
+      }
+    }
+    return;
+  }
+
+  // 2. Handle Breadcrumb Links (Deep Search Results)
+  // Search results display the full path; clicking a path segment navigates there.
+  const breadcrumbLink = event.target.closest('.breadcrumb-link');
+  if (breadcrumbLink) {
+    event.stopPropagation();
+
+    const path = breadcrumbLink.dataset.path;
+    if (path !== undefined) {
+      // Clear search mode and navigate to the clicked folder
+      resetSearch();
+      setCurrentPathWithRefresh(path);
+    }
+    return;
+  }
+
+  // 3. Handle General Item Interaction
+  // Find the closest item element (Card, List Item, or Search Result)
+  const itemEl = event.target.closest('.file-card, .file-list-item, .search-result-item');
+  if (!itemEl) return;
+
+  // Ignore clicks inside other buttons that weren't handled above (defensive programming)
+  if (event.target.closest('button') && !event.target.closest('.btn-danger')) return;
+
+  const itemName = itemEl.dataset.name;
+  if (!itemName) return;
+
+  const entry = currentItems.find(i => i.name === itemName);
+  if (!entry) return;
+  
+  // Multi-select Logic (Ctrl/Cmd + Click)
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault();
+    const selected = isSelected(itemName);
+    toggleItemSelection(itemName, !selected);
+    // Note: Visual update happens via selection module callbacks
+    return;
+  }
+
+  const selectedItems = getSelectedItems();
+
+  // Selection Mode Logic (If any items are already selected)
+  if (selectedItems.size > 0) {
+    event.preventDefault();
+    
+    // Toggle selection for this item
+    if (isSelected(itemName)) {
+      toggleItemSelection(itemName, false);
+      itemEl.classList.remove('selected');
+    } else {
+      toggleItemSelection(itemName, true);
+      itemEl.classList.add('selected');
+    }
+    return;
+  }
+
+  // Deep Search Result Logic
+  const isDeepSearch = itemEl.classList.contains('search-result-item');
+  if (isDeepSearch) {
+    // Only trigger navigation if clicking the Name or Icon
+    // (Breadcrumbs are handled above, Row background does nothing in deep search unless selecting)
+    if (event.target.closest('.search-result-name')) {
+        handleDeepSearchResultClick(entry);
+    }
+  } else {
+    // Normal Item: Click anywhere triggers navigation/download
+    handleItemClick(entry);
+  }
+}
+
+/**
+ * Handle right-click context menu via Event Delegation.
+ * 
+ * Behavior:
+ * - If right-clicking an unselected item: Select it exclusively, then show menu.
+ * - If right-clicking a selected item: Keep selection, show menu for all selected items.
+ * 
+ * @param {MouseEvent} event 
+ */
+function handleContextMenu(event) {
+  // Find the target item
+  const target = event.target.closest('.file-card, .file-list-item, .search-result-item');
+  
+  if (!target) return;
+  
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const itemName = target.dataset.name;
+  
+  if (!itemName) return;
+  
+  // Find the item in currentItems
+  const item = currentItems.find(i => i.name === itemName);
+  if (!item) return;
+  
+  // Selection logic
+  if (!isSelected(itemName)) {
+    // Right-clicking outside current selection: Reset selection to this item
+    deselectAll();
+    toggleItemSelection(itemName, true);
+  }
+  
+  // Build context menu items based on current selection state
+  const menuItems = buildContextMenuItems();
+  
+  // Show context menu at mouse coordinates
+  showContextMenu(event.clientX, event.clientY, menuItems);
+}
+
+/**
+ * Construct the context menu configuration array based on current selection.
+ * Checks permissions (read-only, etc.) and item types.
+ * 
+ * @returns {Array<Object>} Array of menu item objects
+ */
+export function buildContextMenuItems() {
+  const selectedItems = getSelectedItems();
+  const selectedCount = selectedItems.size;
+  const selectedNames = Array.from(selectedItems);
+  
+  // Get the first selected item for context (e.g., determining if folder or file)
+  const firstItem = currentItems.find(i => selectedNames.includes(i.name));
+  const isSingleSelection = selectedCount === 1;
+  const isFolder = firstItem && firstItem.type === 'dir';
+  
+  const items = [];
+  
+  // Action: Open (Single Folder)
+  if (isSingleSelection && isFolder) {
+    items.push({
+      label: 'Open',
+      icon: '📂',
+      action: () => {
+        handleItemClick(firstItem);
+      }
+    });
+  }
+  
+  // Action: Download (Single File)
+  if (isSingleSelection && !isFolder) {
+    items.push({
+      label: 'Download',
+      icon: '⬇️',
+      action: () => {
+        handleItemClick(firstItem);
+      }
+    });
+  }
+  
+  // Separator
+  if (items.length > 0) {
+    items.push({ separator: true });
+  }
+  
+  // Action: Rename (Single Item, if allowed)
+  const renameCheck = isOperationAllowed('rename');
+  if (isSingleSelection) {
+    items.push({
+      label: 'Rename',
+      icon: '✏️',
+      action: renameSelectedItem,
+      disabled: !renameCheck.allowed
+    });
+  }
+  
+  // Action: Move (If allowed, disabled in Deep Search)
+  const moveCheck = isOperationAllowed('move');
+  const searchMode = getSearchMode();
+  items.push({
+    label: selectedCount > 1 ? `Move ${selectedCount} items` : 'Move',
+    icon: '📁',
+    action: moveSelectedItems,
+    disabled: !moveCheck.allowed || searchMode === 'deep'
+  });
+  
+  // Separator
+  items.push({ separator: true });
+  
+  // Action: Delete (If allowed)
+  const deleteCheck = isOperationAllowed('delete');
+  items.push({
+    label: selectedCount > 1 ? `Delete ${selectedCount} items` : 'Delete',
+    icon: '🗑️',
+    action: deleteSelectedItems,
+    disabled: !deleteCheck.allowed,
+    danger: true // Red styling
+  });
+  
+  return items;
+}
+
+/**
+ * Setup listeners for the Selection Bar buttons (top action bar).
+ * 
+ * Important: Clicking any selection bar button must hide the Context Menu
+ * to prevent invalid states (e.g., operating on deleted items).
  */
 function setupSelectionButtons() {
   const selectAllBtn = document.getElementById('selectAllBtn');
@@ -129,28 +404,44 @@ function setupSelectionButtons() {
   const moveSelectedBtn = document.getElementById('moveSelectedBtn');
   
   if (selectAllBtn) {
-    selectAllBtn.addEventListener('click', () => selectAll(currentItems));
+    selectAllBtn.addEventListener('click', () => {
+      hideContextMenu();
+      selectAll(currentItems);
+    });
   }
   
   if (deselectAllBtn) {
-    deselectAllBtn.addEventListener('click', deselectAll);
+    deselectAllBtn.addEventListener('click', () => {
+      hideContextMenu();
+      deselectAll();
+    });
   }
   
   if (deleteSelectedBtn) {
-    deleteSelectedBtn.addEventListener('click', deleteSelectedItems);
+    deleteSelectedBtn.addEventListener('click', () => {
+      hideContextMenu();
+      deleteSelectedItems();
+    });
   }
   
   if (renameSelectedBtn) {
-    renameSelectedBtn.addEventListener('click', renameSelectedItem);
+    renameSelectedBtn.addEventListener('click', () => {
+      hideContextMenu();
+      renameSelectedItem();
+    });
   }
   
   if (moveSelectedBtn) {
-    moveSelectedBtn.addEventListener('click', moveSelectedItems);
+    moveSelectedBtn.addEventListener('click', () => {
+      hideContextMenu();
+      moveSelectedItems();
+    });
   }
 }
 
 /**
- * Update selection bar button states based on configuration
+ * Update the enabled/disabled state of Selection Bar buttons based on 
+ * current server permissions (e.g., Read-Only mode).
  */
 export function updateSelectionButtonStates() {
   const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
@@ -192,7 +483,7 @@ export function updateSelectionButtonStates() {
 }
 
 /**
- * Setup view toggle functionality
+ * Setup listeners for Grid/List view toggle buttons.
  */
 function setupViewToggle() {
   if (gridViewBtn) {
@@ -219,7 +510,9 @@ function setupViewToggle() {
 }
 
 /**
- * Switch between grid and list view
+ * Switch the current view mode and re-render the list.
+ * Persists the choice to localStorage.
+ * 
  * @param {string} mode - VIEW_MODE_GRID or VIEW_MODE_LIST
  */
 function switchView(mode) {
@@ -227,21 +520,24 @@ function switchView(mode) {
   
   currentViewMode = mode;
   
+  // Update button visual state
   if (gridViewBtn && listViewBtn) {
     gridViewBtn.classList.toggle(ACTIVE_CLASS, mode === VIEW_MODE_GRID);
     listViewBtn.classList.toggle(ACTIVE_CLASS, mode === VIEW_MODE_LIST);
   }
   
+  // Update container class for CSS styling
   if (fileListEl) {
     fileListEl.className = mode === VIEW_MODE_GRID ? 'file-grid' : 'file-list';
   }
   
+  // Re-render items in new mode
   renderItems(currentItems);
   localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
 }
 
 /**
- * Load saved view preference
+ * Load the saved view preference from localStorage on startup.
  */
 function loadViewPreference() {
   const savedMode = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
@@ -251,8 +547,10 @@ function loadViewPreference() {
 }
 
 /**
- * Toggle loading state
- * @param {boolean} isLoading
+ * Toggle the main list loading indicator (spinner).
+ * Also updates the refresh button state.
+ * 
+ * @param {boolean} isLoading 
  */
 export function setListLoading(isLoading) {
   if (refreshBtn) {
@@ -281,8 +579,14 @@ export function setListLoading(isLoading) {
 }
 
 /**
- * Update storage meter
- * @param {Object} storage - Storage information
+ * Update the storage usage meter in the UI.
+ * Handles styling for different usage levels (green, orange, red).
+ * 
+ * @param {Object} storage - Storage info from API
+ * @param {number} storage.totalBytes
+ * @param {number} storage.freeBytes
+ * @param {number} [storage.usedBytes]
+ * @param {number} [storage.usedPercent]
  */
 export function updateStorage(storage) {
   if (!storage || !storageTextEl || !storageBarEl) return;
@@ -304,24 +608,26 @@ export function updateStorage(storage) {
 }
 
 /**
- * Update breadcrumbs navigation
- * @param {string[]} breadcrumbs
+ * Render the breadcrumb navigation based on current path segments.
+ * 
+ * @param {string[]} breadcrumbs - Array of path segments
  */
 export function updateBreadcrumbs(breadcrumbs) {
   if (!breadcrumbsEl) return;
   
   breadcrumbsEl.innerHTML = '';
 
+  // 1. Root/Home Crumb
   const rootCrumb = document.createElement('span');
   rootCrumb.className = 'crumb';
   rootCrumb.textContent = 'Home';
   rootCrumb.addEventListener('click', () => {
-    // Clear search before navigation
     resetSearch();
     setCurrentPathWithRefresh('');
   });
   breadcrumbsEl.appendChild(rootCrumb);
 
+  // 2. Path Segments
   if (Array.isArray(breadcrumbs) && breadcrumbs.length > 0) {
     breadcrumbs.forEach((seg, index) => {
       const sep = document.createElement('span');
@@ -336,7 +642,6 @@ export function updateBreadcrumbs(breadcrumbs) {
       const targetPath = breadcrumbs.slice(0, index + 1).join('/');
       
       crumb.addEventListener('click', () => {
-        // Clear search before navigation
         resetSearch();
         setCurrentPathWithRefresh(targetPath);
       });
@@ -344,30 +649,31 @@ export function updateBreadcrumbs(breadcrumbs) {
     });
   }
 
+  // Update Up Button state
   if (upBtn) {
     upBtn.disabled = getCurrentPath() === '';
   }
 }
 
 /**
- * Apply filter/sort and render
+ * Apply current filter and sort criteria to raw items, then render the result.
+ * Also handles Search Mode transitions and UI updates.
  */
 function applyFilterSortAndRender() {
   const result = applySortAndFilter(rawItems);
   const previousSearchMode = currentSearchMode;
   currentSearchMode = result.mode;
   
-  // Clear selection when search mode changes
+  // Clear selection when search mode changes (to avoid confusion)
   if (previousSearchMode !== currentSearchMode) {
     clearSelection();
   }
   
-  // Update upload controls based on search state
+  // Update UI controls visibility based on search state
   updateUploadControlsState();
-  
-  // Update move button state based on search mode
   updateMoveButtonState();
   
+  // Render appropriate view based on mode
   if (result.mode === 'deep') {
     renderDeepSearchResults(result.items, result.query);
   } else {
@@ -376,7 +682,8 @@ function applyFilterSortAndRender() {
 }
 
 /**
- * Update upload controls (FAB and New Folder button) based on search state
+ * Toggle visibility of Upload/New Folder buttons.
+ * (Hidden during search to prevent confusion about where files land)
  */
 function updateUploadControlsState() {
   const fabUpload = document.getElementById('fabUpload');
@@ -401,7 +708,8 @@ function updateUploadControlsState() {
 }
 
 /**
- * Update Move button state based on search mode
+ * Disable the "Move" button during Deep Search.
+ * (Moving items from search results across different folders is complex/risky)
  */
 function updateMoveButtonState() {
   const moveSelectedBtn = document.getElementById('moveSelectedBtn');
@@ -433,8 +741,8 @@ function updateMoveButtonState() {
 }
 
 /**
- * Render items in current view mode
- * @param {Array} items - File/folder items
+ * Main render entry point. Stores raw items and triggers filter/sort pipeline.
+ * @param {Array} items - List of file objects
  */
 export function renderItems(items) {
   rawItems = items || [];
@@ -442,10 +750,11 @@ export function renderItems(items) {
 }
 
 /**
- * Render normal items (not deep search results)
+ * Render items for standard view (Grid/List) or Quick Search.
+ * 
  * @param {Array} items - Processed items
  * @param {string} mode - 'normal' or 'quick'
- * @param {string} query - Search query
+ * @param {string} query - Search query (if applicable)
  */
 function renderNormalItems(items, mode, query) {
   if (!fileListEl || !emptyStateEl) return;
@@ -455,11 +764,12 @@ function renderNormalItems(items, mode, query) {
   
   setExistingNamesFromList(currentItems);
   
-  // Update references in other modules
+  // Sync state with other modules
   updateTouchHandlerItems(currentItems);
   updateKeyboardShortcutItems(currentItems);
   updateItemActionsItems(currentItems);
 
+  // Handle Empty State
   if (!currentItems || currentItems.length === 0) {
     if (mode === 'quick' && query) {
       showEmptySearchState(query);
@@ -471,7 +781,7 @@ function renderNormalItems(items, mode, query) {
   
   emptyStateEl.style.display = 'none';
 
-  // Show search header for quick search
+  // Render Search Header for Quick Search
   if (mode === 'quick' && query) {
     const header = document.createElement('div');
     header.className = 'search-results-header';
@@ -502,6 +812,7 @@ function renderNormalItems(items, mode, query) {
     }
   }
 
+  // Render items based on view mode
   if (currentViewMode === VIEW_MODE_GRID) {
     renderGridView(currentItems);
   } else {
@@ -510,8 +821,10 @@ function renderNormalItems(items, mode, query) {
 }
 
 /**
- * Render deep search results with paths
- * @param {Array} items - Search result items with path info
+ * Render items for Deep Search (recursive search results).
+ * Displays full path information for each result.
+ * 
+ * @param {Array} items - Processed items
  * @param {string} query - Search query
  */
 function renderDeepSearchResults(items, query) {
@@ -521,7 +834,7 @@ function renderDeepSearchResults(items, query) {
   fileListEl.innerHTML = '';
   emptyStateEl.style.display = 'none';
   
-  // Update references in other modules
+  // Sync state
   updateTouchHandlerItems(currentItems);
   updateKeyboardShortcutItems(currentItems);
   updateItemActionsItems(currentItems);
@@ -531,7 +844,7 @@ function renderDeepSearchResults(items, query) {
     return;
   }
   
-  // Show search header
+  // Render Search Header
   const header = document.createElement('div');
   header.className = 'search-results-header';
   header.innerHTML = `
@@ -549,7 +862,6 @@ function renderDeepSearchResults(items, query) {
   `;
   fileListEl.appendChild(header);
   
-  // Add click handler for exit search button
   const exitBtn = header.querySelector('#exitSearchBtn');
   if (exitBtn) {
     exitBtn.addEventListener('click', () => {
@@ -560,7 +872,7 @@ function renderDeepSearchResults(items, query) {
     });
   }
   
-  // Render each result with path
+  // Render result items (Deep search uses a specific list layout)
   currentItems.forEach(item => {
     const resultItem = createDeepSearchResultItem(item);
     fileListEl.appendChild(resultItem);
@@ -568,8 +880,8 @@ function renderDeepSearchResults(items, query) {
 }
 
 /**
- * Show empty search state
- * @param {string} query - Search query
+ * Render empty state for search queries.
+ * @param {string} query 
  */
 function showEmptySearchState(query) {
   if (!emptyStateEl) return;
@@ -586,7 +898,6 @@ function showEmptySearchState(query) {
   `;
   emptyStateEl.style.display = 'flex';
   
-  // Add click handler for clear button
   const clearBtn = emptyStateEl.querySelector('#emptyStateClearBtn');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
@@ -599,59 +910,38 @@ function showEmptySearchState(query) {
 }
 
 /**
- * Create deep search result item element
- * @param {Object} item - Item with path info
+ * Create a specialized DOM element for Deep Search results.
+ * Includes breadcrumb path visualization.
+ * 
+ * @param {Object} item 
  * @returns {HTMLLIElement}
  */
 function createDeepSearchResultItem(item) {
   const li = document.createElement('li');
   li.className = 'search-result-item';
   
-  // Add data attributes for selection support
+  // Add data attributes for selection/interaction support (Event Delegation)
   li.dataset.name = item.name;
   li.dataset.type = item.type;
   
-  // Apply selection state if item is selected
   if (isSelected(item.name)) {
     li.classList.add('selected');
   }
   
-  // Icon
   const iconEl = createListIconElement(item.name, item.type);
   
-  // Main info container
   const infoContainer = document.createElement('div');
   infoContainer.className = 'search-result-info';
   
-  // Name - clickable for files
   const nameEl = document.createElement('div');
   nameEl.className = 'search-result-name';
   nameEl.textContent = item.name;
-  
-  // Make name clickable to download/open file or navigate to folder
   nameEl.style.cursor = 'pointer';
-  nameEl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    
-    // Check if selection mode is active
-    const selectedItems = getSelectedItems();
-    if (selectedItems.size > 0) {
-      // In selection mode, clicking name toggles selection
-      const selected = isSelected(item.name);
-      toggleItemSelection(item.name, !selected);
-      return;
-    }
-    
-    // Normal mode: open/download
-    handleDeepSearchResultClick(item);
-  });
   
-  // Clickable breadcrumb path - opens parent directory
   const pathEl = document.createElement('div');
   pathEl.className = 'search-result-path';
   pathEl.innerHTML = createClickableBreadcrumb(item);
   
-  // Metadata
   const metaEl = document.createElement('div');
   metaEl.className = 'search-result-meta';
   metaEl.textContent = createMetadataText(item);
@@ -663,39 +953,15 @@ function createDeepSearchResultItem(item) {
   li.appendChild(iconEl);
   li.appendChild(infoContainer);
   
-  // Add click handler for selection support
-  li.addEventListener('click', (e) => {
-    // Ctrl/Cmd+Click for multi-select
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const selected = isSelected(item.name);
-      toggleItemSelection(item.name, !selected);
-      return;
-    }
-    
-    const selectedItems = getSelectedItems();
-    
-    // If ANY items are selected (selection mode is active)
-    if (selectedItems.size > 0) {
-      e.preventDefault();
-      
-      // If this item is already selected, deselect it
-      if (isSelected(item.name)) {
-        toggleItemSelection(item.name, false);
-      } else {
-        // Add this item to selection
-        toggleItemSelection(item.name, true);
-      }
-    }
-  });
-  
   return li;
 }
 
 /**
- * Create clickable breadcrumb for search result
- * @param {Object} item - Item with breadcrumbs
- * @returns {string} - HTML string
+ * Generate HTML for clickable breadcrumbs in search results.
+ * Used to navigate to parent directories of search matches.
+ * 
+ * @param {Object} item 
+ * @returns {string} HTML string
  */
 function createClickableBreadcrumb(item) {
   const parts = ['Home'];
@@ -704,22 +970,24 @@ function createClickableBreadcrumb(item) {
   }
   
   return parts.map((part, index) => {
+    // Reconstruct path for each segment
     const path = index === 0 ? '' : parts.slice(1, index + 1).join('/');
     return `<span class="breadcrumb-link" data-path="${path}">${part}</span>`;
   }).join(' › ');
 }
 
 /**
- * Handle deep search result click
- * @param {Object} item - Item with path info
+ * Handle navigation when a Deep Search result name is clicked.
+ * 
+ * @param {Object} item 
  */
 function handleDeepSearchResultClick(item) {
   if (item.type === 'dir') {
-    // Open folder in new tab
+    // Open folder: opens in new tab to avoid losing search context unintentionally
     const url = `${window.location.origin}${window.location.pathname}#path=${encodeURIComponent(item.fullPath)}`;
     window.open(url, '_blank');
   } else {
-    // Open/download file in new tab
+    // Open/Download file
     const downloadUrl = DOWNLOAD_BASE + 
       (item.displayPath ? `?path=${encodeURIComponent(item.displayPath)}&file=` : '?file=') + 
       encodeURIComponent(item.name);
@@ -728,7 +996,7 @@ function handleDeepSearchResultClick(item) {
 }
 
 /**
- * View configuration for grid and list modes
+ * Configuration mapping for Grid vs List rendering.
  */
 const VIEW_CONFIG = {
   grid: {
@@ -750,9 +1018,7 @@ const VIEW_CONFIG = {
 };
 
 /**
- * Create metadata text for an entry
- * @param {Object} entry
- * @returns {string}
+ * Helper: Format metadata text (size, date, count) for an item.
  */
 function createMetadataText(entry) {
   if (entry.type === 'dir') {
@@ -767,8 +1033,10 @@ function createMetadataText(entry) {
 }
 
 /**
- * Create delete button for an entry
- * @param {Object} entry
+ * Create a delete button element for an item.
+ * Checks 'delete' permissions.
+ * 
+ * @param {Object} entry 
  * @returns {HTMLButtonElement}
  */
 function createDeleteButton(entry) {
@@ -776,7 +1044,7 @@ function createDeleteButton(entry) {
   deleteBtn.className = 'btn btn-sm btn-danger';
   deleteBtn.innerHTML = '🗑️';
   
-  // Check if delete operation is allowed
+  // Check permission
   const check = isOperationAllowed('delete');
   if (!check.allowed) {
     deleteBtn.disabled = true;
@@ -785,58 +1053,17 @@ function createDeleteButton(entry) {
     deleteBtn.style.cursor = 'not-allowed';
   } else {
     deleteBtn.title = 'Delete';
-    deleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteItem(entry);
-    });
+    // Event listener removed - handled by Event Delegation in handleListClick
   }
   
   return deleteBtn;
 }
 
 /**
- * Attach click handler to item element
- * @param {HTMLElement} element
- * @param {Object} entry
- */
-function attachItemClickHandler(element, entry) {
-  element.addEventListener('click', (e) => {
-    // Ctrl/Cmd+Click for multi-select
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const selected = isSelected(entry.name);
-      toggleItemSelection(entry.name, !selected);
-      element.classList.toggle('selected', !selected);
-      return;
-    }
-    
-    const selectedItems = getSelectedItems();
-    
-    // If ANY items are selected (selection mode is active)
-    if (selectedItems.size > 0) {
-      e.preventDefault();
-      
-      // If this item is already selected, deselect it
-      if (isSelected(entry.name)) {
-        toggleItemSelection(entry.name, false);
-        element.classList.remove('selected');
-      } else {
-        // Add this item to selection
-        toggleItemSelection(entry.name, true);
-        element.classList.add('selected');
-      }
-      return;
-    }
-    
-    // No items selected - normal click behavior (open/download)
-    handleItemClick(entry);
-  });
-}
-
-/**
- * Render a single item based on view mode
- * @param {Object} entry
- * @param {'grid'|'list'} viewMode
+ * Render a single standard item (Grid or List view).
+ * 
+ * @param {Object} entry - File object
+ * @param {'grid'|'list'} viewMode 
  * @returns {HTMLLIElement}
  */
 function renderItem(entry, viewMode) {
@@ -844,6 +1071,7 @@ function renderItem(entry, viewMode) {
   
   const li = document.createElement('li');
   li.className = config.itemClass;
+  // Attributes for Event Delegation
   li.dataset.name = entry.name;
   li.dataset.type = entry.type;
   
@@ -861,9 +1089,9 @@ function renderItem(entry, viewMode) {
   actionsEl.className = config.actionsClass;
   actionsEl.appendChild(createDeleteButton(entry));
   
-  // Build DOM structure based on view mode
+  // Assemble DOM
   if (config.wrapInfo) {
-    // List view: wrap name and meta in info container
+    // List view: Text info wrapped in container
     const infoEl = document.createElement('div');
     infoEl.className = 'file-info';
     infoEl.appendChild(nameEl);
@@ -873,26 +1101,23 @@ function renderItem(entry, viewMode) {
     li.appendChild(infoEl);
     li.appendChild(actionsEl);
   } else {
-    // Grid view: append directly
+    // Grid view: Stacked
     li.appendChild(iconEl);
     li.appendChild(nameEl);
     li.appendChild(metaEl);
     li.appendChild(actionsEl);
   }
   
-  // Apply selection state if item is selected
+  // Visual Selection State
   if (isSelected(entry.name)) {
     li.classList.add('selected');
   }
-  
-  attachItemClickHandler(li, entry);
   
   return li;
 }
 
 /**
- * Render items in grid view
- * @param {Array} items
+ * Render loop for Grid View.
  */
 function renderGridView(items) {
   fileListEl.className = 'file-grid';
@@ -902,8 +1127,7 @@ function renderGridView(items) {
 }
 
 /**
- * Render items in list view
- * @param {Array} items
+ * Render loop for List View.
  */
 function renderListView(items) {
   fileListEl.className = 'file-list';
@@ -913,8 +1137,9 @@ function renderListView(items) {
 }
 
 /**
- * Handle item click (navigation or download)
- * @param {Object} entry
+ * Handle standard item click action (Navigate or Download/Open).
+ * 
+ * @param {Object} entry 
  */
 function handleItemClick(entry) {
   if (entry.type === 'dir') {
@@ -922,15 +1147,16 @@ function handleItemClick(entry) {
   } else {
     const path = getCurrentPath();
     const downloadUrl = DOWNLOAD_BASE + (path ? (`?path=${encodeURIComponent(path)}&file=`) : ('?file=')) + encodeURIComponent(entry.name);
-    console.log(downloadUrl);
-    // Open file in new tab - backend will handle Content-Disposition (inline vs attachment)
+    // Backend handles Content-Disposition (inline vs attachment)
     window.open(downloadUrl, '_blank');
   }
 }
 
 /**
- * Request tracking version of fetchAndRenderList for auto-refresh
- * @param {number} requestId
+ * Auto-refresh callback wrapper.
+ * Sets loading state to true during refresh.
+ * 
+ * @param {number} requestId - Unique ID for race condition handling
  */
 async function fetchAndRenderListWithTracking(requestId) {
   setListLoading(true);
@@ -956,7 +1182,8 @@ async function fetchAndRenderListWithTracking(requestId) {
 }
 
 /**
- * Fetch listing from server and render items
+ * Public API: Triggers a fresh fetch and render of the current path.
+ * Used by external modules or manual refresh button.
  */
 export async function fetchAndRenderList() {
   setListLoading(true);
@@ -968,7 +1195,6 @@ export async function fetchAndRenderList() {
     updateBreadcrumbs(resp.breadcrumbs || []);
     updateStorage(resp.storage);
     
-    // Reset search only if path changed (navigation), not on initial load
     if (hasPathChanged()) {
       resetSearch();
     }

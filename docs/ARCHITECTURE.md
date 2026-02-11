@@ -164,6 +164,39 @@ use function NanoCloud\Helpers\formatBytes;
 use function NanoCloud\Helpers\ensureDirectoryExists;
 ```
 
+## Frontend Architecture
+
+The frontend is built with vanilla JavaScript (ES6+) using a modular architecture, avoiding heavy frameworks to maintain speed and simplicity.
+
+### Core Modules
+
+- **`nanocloudClient.js`**: API client wrapper (handles HTTP requests)
+- **`state.js`**: Centralized state management (current path, items, etc.)
+- **`main.js`**: Entry point and initialization
+
+### UI Modules (`public/assets/js/ui/`)
+
+- **`list.js`**: Handles file list rendering and interactions. Uses **Event Delegation** on the main container to efficiently handle clicks for thousands of items without binding individual listeners.
+- **`contextMenu.js`**: Custom context menu implementation with positioning logic and backdrop handling.
+- **`touchHandlers.js`**: specialized touch logic (long-press detection) for mobile devices, integrating with the context menu.
+- **`itemActions.js`**: Handlers for file operations (delete, rename, move).
+- **`selection.js`**: Manages selection state (single/multi-select).
+
+### Key Patterns
+
+#### Event Delegation
+To maximize performance with large file lists, `list.js` uses a single event listener on the parent container (`#fileList`) to handle:
+- Navigation (folder clicks)
+- Selection (Ctrl/Cmd + click)
+- Context actions (right-click)
+- Mobile gestures
+
+#### Smart Context Menu
+The system handles hybrid inputs (mouse + touch) by intelligently detecting the input source:
+- **Desktop**: Right-click triggers custom context menu
+- **Mobile**: Long-press (500ms) triggers context menu
+- **Hybrid**: "Smart Suppression" prevents double-firing on touch devices
+
 ## Request Flow
 
 ### 1. List Directory
