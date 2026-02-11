@@ -59,6 +59,7 @@ Designed to solve the "How do I send you these photos?" problem.
 - **⌨️ Keyboard Shortcuts**: Efficient navigation with keyboard commands
 - **🎬 Media Streaming**: Stream videos, audio, and view images directly in browser
 - **📦 Drag & Drop**: Upload files and folders by dragging them anywhere on the page
+- **🖱️ Context Menu**: Right-click (desktop) or long-press (mobile) for quick actions
 - **🔄 Self-Update**: Built-in update system to keep your installation current
 - **♻️ Resumable Uploads**: Chunked uploads with cross-device resume capability for unlimited file sizes
 
