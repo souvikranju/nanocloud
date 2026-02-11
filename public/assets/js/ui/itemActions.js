@@ -35,9 +35,12 @@ export async function deleteItem(entry) {
   if (!confirm(message)) return;
   
   try {
+    // Use displayPath from deep search results if available, otherwise fall back to current path
+    const path = typeof entry.displayPath !== 'undefined' ? entry.displayPath : getCurrentPath();
+    
     const resp = entry.type === 'dir' 
-      ? await apiDeleteDir(getCurrentPath(), entry.name)
-      : await apiDeleteFile(getCurrentPath(), entry.name);
+      ? await apiDeleteDir(path, entry.name)
+      : await apiDeleteFile(path, entry.name);
     
     if (!resp.success) {
       throw new Error(resp.message || 'Delete failed');
@@ -72,9 +75,12 @@ export async function deleteSelectedItems() {
       const item = currentItems.find(i => i.name === itemName);
       if (!item) continue;
       
+      // Use displayPath from deep search results if available, otherwise fall back to current path
+      const path = typeof item.displayPath !== 'undefined' ? item.displayPath : getCurrentPath();
+      
       const resp = item.type === 'dir' 
-        ? await apiDeleteDir(getCurrentPath(), itemName)
-        : await apiDeleteFile(getCurrentPath(), itemName);
+        ? await apiDeleteDir(path, itemName)
+        : await apiDeleteFile(path, itemName);
       
       if (resp.success) {
         successCount++;
@@ -155,9 +161,12 @@ export async function renameSelectedItem() {
     }
     
     try {
+      // Use displayPath from deep search results if available, otherwise fall back to current path
+      const path = typeof item.displayPath !== 'undefined' ? item.displayPath : getCurrentPath();
+
       const resp = item.type === 'dir'
-        ? await apiRenameDir(getCurrentPath(), itemName, newName)
-        : await apiRenameFile(getCurrentPath(), itemName, newName);
+        ? await apiRenameDir(path, itemName, newName)
+        : await apiRenameFile(path, itemName, newName);
       
       if (!resp.success) {
         throw new Error(resp.message || 'Rename failed');

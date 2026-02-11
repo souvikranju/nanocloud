@@ -1145,7 +1145,8 @@ function handleItemClick(entry) {
   if (entry.type === 'dir') {
     setCurrentPathWithRefresh(joinPath(getCurrentPath(), entry.name));
   } else {
-    const path = getCurrentPath();
+    // Use displayPath from deep search results if available, otherwise fall back to current path
+    const path = typeof entry.displayPath !== 'undefined' ? entry.displayPath : getCurrentPath();
     const downloadUrl = DOWNLOAD_BASE + (path ? (`?path=${encodeURIComponent(path)}&file=`) : ('?file=')) + encodeURIComponent(entry.name);
     // Backend handles Content-Disposition (inline vs attachment)
     window.open(downloadUrl, '_blank');
