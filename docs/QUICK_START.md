@@ -159,7 +159,7 @@ Edit `php.ini` to allow large uploads:
 ```ini
 file_uploads = On
 upload_max_filesize = 5G
-post_max_size = 5G
+post_max_size = 6G
 max_file_uploads = 50
 max_execution_time = 300
 max_input_time = 300
@@ -174,7 +174,7 @@ php --ini
 **Restart PHP after changes:**
 ```bash
 # PHP-FPM
-sudo systemctl restart php8.0-fpm
+sudo systemctl restart php8.0-fpm  # service name varies by distro/version (e.g. php8.2-fpm)
 
 # Apache with mod_php
 sudo systemctl restart apache2
@@ -255,9 +255,9 @@ php -i | grep post_max_size
 
 # Increase limits in php.ini
 upload_max_filesize = 5G
-post_max_size = 5G
+post_max_size = 6G
 
-# Restart PHP
+# Restart PHP (service name varies by distro/version, e.g. php8.2-fpm)
 sudo systemctl restart php8.0-fpm
 ```
 

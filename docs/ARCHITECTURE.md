@@ -32,7 +32,6 @@ Each layer has a single, well-defined responsibility:
 - All paths validated before use
 - All inputs sanitized
 - Path traversal protection
-- Session-based upload limits
 
 ## Architecture Layers
 
@@ -214,7 +213,7 @@ Browser receives per-file results
 ```
 
 **Chunked Upload (Large Files)**:
-For files larger than 2MB, the system uses chunked uploads to bypass PHP size limits.
+For files larger than 2MB, the web UI uses chunked uploads to bypass PHP size limits (threshold and chunk size are configured in `public/assets/js/constants.js`).
 See [CHUNKED_UPLOAD.md](CHUNKED_UPLOAD.md) for detailed documentation.
 
 ```

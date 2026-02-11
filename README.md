@@ -74,41 +74,7 @@ Designed to solve the "How do I send you these photos?" problem.
 
 ## 🚀 Quick Start
 
-### 1. Download & Extract
-```bash
-git clone https://github.com/souvikranju/nanocloud.git
-cd nanocloud
-```
-
-### 2. Configure Web Server
-Configure your web server to point to the installation directory:
-
-```apache
-# Apache
-DocumentRoot /path/to/nanocloud
-```
-
-```nginx
-# Nginx
-root /path/to/nanocloud;
-```
-
-> 📖 **Detailed setup instructions:** See [Quick Start Guide](docs/QUICK_START.md)
-
-### 3. Configure NanoCloud
-```bash
-cp config/local.php.example config/local.php
-nano config/local.php  # Edit your settings
-```
-
-### 4. Set Permissions
-```bash
-chmod 755 storage
-chown www-data:www-data storage
-```
-
-### 5. Access
-Open your browser and navigate to your server URL.
+See [docs/QUICK_START.md](docs/QUICK_START.md).
 
 ## 📁 Project Structure
 
@@ -134,7 +100,7 @@ nanocloud/
 │   └── local.php              # Local overrides (gitignored)
 │
 ├── storage/                    # File storage directory
-│   └── .temp/                 # Temporary upload staging
+│   └── .gitkeep               # Keeps the directory in git
 │
 └── docs/                       # Documentation
 ```
