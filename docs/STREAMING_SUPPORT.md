@@ -109,7 +109,7 @@ The frontend implementation is simplified to:
 You can configure download rate limiting in `config/local.php`:
 
 ```php
-'DOWNLOAD_RATE_LIMIT_MB' => 0, // 0 = unlimited, or set MB/s limit
+$DOWNLOAD_RATE_LIMIT_MB = 0; // 0 = unlimited, or set MB/s limit
 ```
 
 This affects streaming performance. For local networks, keep it at 0 (unlimited).

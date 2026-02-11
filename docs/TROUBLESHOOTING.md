@@ -47,16 +47,26 @@ Common issues and solutions for NanoCloud.
    
    # Increase in php.ini
    upload_max_filesize = 5G
-   post_max_size = 5G
+   post_max_size = 6G  # should be >= upload_max_filesize (multipart/form-data overhead)
    
-   # Restart PHP
+   # Restart PHP (service name varies by distro/version, e.g. php8.2-fpm)
    sudo systemctl restart php8.0-fpm
    ```
 
-2. **Session Limit Exceeded**
+2. **Chunked upload temp storage issues (NanoCloud)**
+   - Ensure the chunk temp directory is writable by the web server user and has enough free space
+   - If uploads are interrupted on slow connections, increase stale hours to allow resuming for longer
+
    ```php
-   // Increase in config/local.php
-   $MAX_SESSION_BYTES = 10737418240; // 10GB
+   // In config/local.php
+   $CHUNK_TEMP_DIR = '/var/tmp/nanocloud-chunks'; // must be writable by the web server user
+   $CHUNK_STALE_HOURS = 4; // keep incomplete uploads longer (default: 2)
+   ```
+
+   ```bash
+   # Check free space and permissions
+   df -h /var/tmp
+   ls -ld /var/tmp/nanocloud-chunks
    ```
 
 3. **Network Timeout**

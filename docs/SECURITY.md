@@ -323,7 +323,7 @@ session.cookie_samesite = "Strict"
 
 # File upload limits
 upload_max_filesize = 5G
-post_max_size = 5G
+post_max_size = 6G  # should be >= upload_max_filesize (multipart/form-data overhead)
 max_file_uploads = 50
 
 # Resource limits
@@ -652,19 +652,10 @@ sudo htpasswd -c /etc/nginx/.htpasswd username
 ### General Best Practices
 
 **Data Protection:**
-```php
-// In config/local.php
+These settings are **not built into NanoCloud** in this repository. They are examples of controls you could implement externally (filesystem encryption) or by extending NanoCloud.
 
-// Enable encryption at rest (if supported by filesystem)
-// Use encrypted storage volume
-
-// Data retention
-$DATA_RETENTION_DAYS = 90;  // Auto-delete old files
-
-// Audit logging
-$ENABLE_AUDIT_LOG = true;
-$AUDIT_LOG_PATH = '/var/log/nanocloud-audit.log';
-```
+- **Encryption at rest**: use an encrypted filesystem/volume for `$STORAGE_ROOT`.
+- **Data retention / audit logging**: would require custom code (not present by default).
 
 ---
 

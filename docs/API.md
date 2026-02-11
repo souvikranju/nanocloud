@@ -204,7 +204,7 @@ curl "http://your-server/api.php?action=list&path=uploads/2024"
 
 ### Upload File
 
-Upload one or more files (standard upload for files < 100MB).
+Upload one or more files (standard upload for small files). Larger files are automatically uploaded using chunked upload by the NanoCloud web UI (threshold: 2MB by default; see `public/assets/js/constants.js`).
 
 **Endpoint**: `POST /api.php`
 
@@ -276,7 +276,7 @@ console.log(result.results); // Array of per-file results
 
 ### Upload Chunk
 
-Upload a file chunk (for large files > 100MB).
+Upload a file chunk (used by the NanoCloud web UI for files larger than the configured chunk threshold).
 
 **Endpoint**: `POST /api.php`
 

@@ -387,8 +387,8 @@ file_uploads = On
 # Maximum file size (must be >= NanoCloud's limit)
 upload_max_filesize = 5G
 
-# Maximum POST size (must be >= upload_max_filesize)
-post_max_size = 5G
+# Maximum POST size (should be >= upload_max_filesize; multipart/form-data overhead)
+post_max_size = 6G
 
 # Maximum number of files per upload
 max_file_uploads = 50

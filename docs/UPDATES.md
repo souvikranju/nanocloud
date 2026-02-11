@@ -6,7 +6,7 @@ NanoCloud includes a built-in self-update mechanism that allows you to update to
 
 The update system:
 - Checks for updates from GitHub releases
-- Downloads and extracts updates automatically
+- Downloads and extracts updates automatically (from the GitHub Releases “latest” endpoint)
 - Creates backups before updating
 - Supports rollback if update fails
 - Preserves your configuration and files
@@ -15,7 +15,7 @@ The update system:
 
 ### System Requirements
 
-- **PHP Extensions**: `PharData` for archive handling
+- **PHP Extensions**: `PharData` for archive handling (used for both download validation and extraction)
 - **Write Permissions**: Web server must have write access to installation directory
 - **rsync**: Required for atomic deployment (usually pre-installed on Linux)
 - **Internet Access**: To fetch updates from GitHub
@@ -305,10 +305,10 @@ sudo systemctl restart php8.0-fpm
 # Backup current installation
 cp -r /path/to/nanocloud /path/to/nanocloud.backup
 
-# Download latest release
+# Download latest release (example: replace tag with the real release tag)
 cd /tmp
-wget https://github.com/souvikranju/nanocloud/archive/refs/tags/latest version.zip
-unzip latest version.zip
+wget https://github.com/souvikranju/nanocloud/archive/refs/tags/vX.X.X.zip -O nanocloud-vX.X.X.zip
+unzip nanocloud-vX.X.X.zip
 
 # Copy files (preserving config and storage)
 rsync -av --exclude='config/local.php' --exclude='storage' \
@@ -434,19 +434,6 @@ curl -X POST "http://your-server/update_api.php?action=rollback"
    - Notify users of planned maintenance
    - Have rollback plan ready
 
-## Disabling Auto-Update
-
-If you prefer manual updates only:
-
-```php
-// In config/local.php
-$DISABLE_AUTO_UPDATE = true;
-```
-
-This will:
-- Hide update checker in UI
-- Disable update API endpoints
-- Require manual updates only
 
 ## Version File
 
