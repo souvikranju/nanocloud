@@ -88,6 +88,17 @@ function handleTouchStart(event) {
   // Add visual feedback immediately
   target.classList.add('selecting');
   
+  // Capture selection state at START to ensure consistent logic
+  const wasSelectedAtStart = isSelected(itemName);
+  
+  // Capture touch coordinates IMMEDIATELY while they're still valid
+  const touch = event.touches[0];
+  const touchX = touch.clientX;
+  const touchY = touch.clientY;
+  
+  // Add visual feedback immediately
+  target.classList.add('selecting');
+  
   touchTimer = setTimeout(() => {
     longPressTriggered = true;
     
