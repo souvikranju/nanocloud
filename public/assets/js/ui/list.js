@@ -142,7 +142,7 @@ export function initList(refs) {
   setupSelectionButtons();
   
   // Register Auto-Refresh callback
-  registerAutoRefresh((requestId) => fetchAndRenderListWithTracking(requestId));
+  registerAutoRefresh((requestId, targetPath) => fetchAndRenderListWithTracking(requestId, targetPath));
   
   // Initialize Filter/Sort/Search module
   initFilterSort({
@@ -1206,14 +1206,18 @@ function handleItemClick(entry) {
  * Sets loading state to true during refresh.
  * 
  * @param {number} requestId - Unique ID for race condition handling
+ * @param {string|null} targetPath - Optional target path to fetch (for navigation)
  */
-async function fetchAndRenderListWithTracking(requestId) {
+async function fetchAndRenderListWithTracking(requestId, targetPath) {
   setListLoading(true);
   try {
-    const resp = await apiList(getCurrentPath());
+    // Use targetPath if provided (navigation), otherwise use current path (refresh)
+    const pathToFetch = (typeof targetPath === 'string') ? targetPath : getCurrentPath();
+    const resp = await apiList(pathToFetch);
     if (!resp.success) throw new Error(resp.message || 'Failed to load items');
     
-    setCurrentPath(resp.path || '');
+    // Only update state after successful response
+    setCurrentPath(resp.path || pathToFetch);
     updateBreadcrumbs(resp.breadcrumbs || []);
     updateStorage(resp.storage);
     

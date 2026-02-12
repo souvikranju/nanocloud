@@ -116,21 +116,22 @@ export function registerAutoRefresh(callback) {
  * @param {string} path
  */
 export function setCurrentPathWithRefresh(path) {
-  const oldPath = currentPath;
-  setCurrentPath(path);
+  const targetPath = path || '';
   
-  // Only auto-refresh if path actually changed
-  if (oldPath !== (path || '')) {
-    requestRefresh();
+  // Only request refresh if target path is different from current state
+  if (currentPath !== targetPath) {
+    // Pass target path to requestRefresh instead of setting state immediately
+    requestRefresh(false, targetPath);
   }
 }
 
 /**
  * Request a refresh with debouncing and request tracking.
  * @param {boolean} force - Force refresh even if debounced
+ * @param {string|null} targetPath - Optional target path to fetch
  * @returns {Promise<boolean>} - True if refresh was initiated
  */
-export async function requestRefresh(force = false) {
+export async function requestRefresh(force = false, targetPath = null) {
   const now = Date.now();
   
   // Check time-based debouncing (only if not forced)
@@ -148,7 +149,7 @@ export async function requestRefresh(force = false) {
 
   try {
     if (autoRefreshCallback) {
-      await autoRefreshCallback(requestId);
+      await autoRefreshCallback(requestId, targetPath);
     }
     return true;
   } catch (error) {
