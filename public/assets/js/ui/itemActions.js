@@ -429,6 +429,7 @@ export async function moveSelectedItems(targetItems = null) {
     // Note: selectedPath can be '' (root) or a path string
     if (selectedPath === getCurrentPath()) {
       moveModalMessages.innerHTML = '<div class="upload-error-message">Please select a different folder</div>';
+      showError('Please select a different folder');
       return;
     }
     

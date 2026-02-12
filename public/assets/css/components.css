@@ -1732,6 +1732,9 @@ body.drag-active::after {
   transition: opacity var(--transition-fast), transform var(--transition-fast);
   pointer-events: none;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .context-menu.visible {
