@@ -75,7 +75,18 @@ function handleTouchStart(event) {
   
   touchStartItem = target;
   longPressTriggered = false;
-  const itemName = target.dataset.name;
+  const itemId = target.dataset.id || target.dataset.name;
+  
+  // Capture selection state at START to ensure consistent logic
+  const wasSelectedAtStart = isSelected(itemId);
+  
+  // Capture touch coordinates IMMEDIATELY while they're still valid
+  const touch = event.touches[0];
+  const touchX = touch.clientX;
+  const touchY = touch.clientY;
+  
+  // Add visual feedback immediately
+  target.classList.add('selecting');
   
   // Capture selection state at START to ensure consistent logic
   const wasSelectedAtStart = isSelected(itemName);
@@ -105,7 +116,7 @@ function handleTouchStart(event) {
       }
     } else {
       // State 1: Item was not selected at start → Select it
-      toggleItemSelection(itemName, true);
+      toggleItemSelection(itemId, true);
     }
     
     // Vibrate for feedback
@@ -144,8 +155,8 @@ function handleTouchEnd(event) {
     // 1. It was NOT a long press
     // 2. No items are currently selected (not in selection mode)
     if (!wasLongPress && selectedItems.size === 0) {
-      const itemName = touchStartItem.dataset.name;
-      const entry = currentItems.find(item => item.name === itemName);
+      const itemId = touchStartItem.dataset.id || touchStartItem.dataset.name;
+      const entry = currentItems.find(item => (item.fullPath || item.name) === itemId);
       if (entry && onItemClickCallback) {
         onItemClickCallback(entry);
       }

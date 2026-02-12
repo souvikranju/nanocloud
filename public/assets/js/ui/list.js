@@ -50,6 +50,7 @@ import {
   deleteSelectedItems, 
   renameSelectedItem, 
   moveSelectedItems,
+  shareSelectedItem,
   updateItemActionsItems
 } from './itemActions.js';
 import { 
@@ -190,8 +191,9 @@ function handleListClick(event) {
     event.stopPropagation();
     const itemEl = deleteBtn.closest('.file-card, .file-list-item, .search-result-item');
     if (itemEl) {
-      const itemName = itemEl.dataset.name;
-      const item = currentItems.find(i => i.name === itemName);
+      // Use ID for lookup
+      const itemId = itemEl.dataset.id || itemEl.dataset.name;
+      const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
       if (item) {
         deleteItem(item);
       }
@@ -222,17 +224,18 @@ function handleListClick(event) {
   // Ignore clicks inside other buttons that weren't handled above (defensive programming)
   if (event.target.closest('button') && !event.target.closest('.btn-danger')) return;
 
-  const itemName = itemEl.dataset.name;
-  if (!itemName) return;
+  // Use ID for lookup (falls back to name for normal items if dataset.id missing)
+  const itemId = itemEl.dataset.id || itemEl.dataset.name;
+  if (!itemId) return;
 
-  const entry = currentItems.find(i => i.name === itemName);
+  const entry = currentItems.find(i => (i.fullPath || i.name) === itemId);
   if (!entry) return;
   
   // Multi-select Logic (Ctrl/Cmd + Click)
   if (event.ctrlKey || event.metaKey) {
     event.preventDefault();
-    const selected = isSelected(itemName);
-    toggleItemSelection(itemName, !selected);
+    const selected = isSelected(itemId);
+    toggleItemSelection(itemId, !selected);
     // Note: Visual update happens via selection module callbacks
     return;
   }
@@ -244,11 +247,11 @@ function handleListClick(event) {
     event.preventDefault();
     
     // Toggle selection for this item
-    if (isSelected(itemName)) {
-      toggleItemSelection(itemName, false);
+    if (isSelected(itemId)) {
+      toggleItemSelection(itemId, false);
       itemEl.classList.remove('selected');
     } else {
-      toggleItemSelection(itemName, true);
+      toggleItemSelection(itemId, true);
       itemEl.classList.add('selected');
     }
     return;
@@ -286,19 +289,19 @@ function handleContextMenu(event) {
   event.preventDefault();
   event.stopPropagation();
   
-  const itemName = target.dataset.name;
-  
-  if (!itemName) return;
+  // Use ID for lookup (falls back to name for normal items if dataset.id missing)
+  const itemId = target.dataset.id || target.dataset.name;
+  if (!itemId) return;
   
   // Find the item in currentItems
-  const item = currentItems.find(i => i.name === itemName);
+  const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
   if (!item) return;
   
   // Selection logic
-  if (!isSelected(itemName)) {
+  if (!isSelected(itemId)) {
     // Right-clicking outside current selection: Reset selection to this item
     deselectAll();
-    toggleItemSelection(itemName, true);
+    toggleItemSelection(itemId, true);
   }
   
   // Build context menu items based on current selection state
@@ -317,10 +320,11 @@ function handleContextMenu(event) {
 export function buildContextMenuItems() {
   const selectedItems = getSelectedItems();
   const selectedCount = selectedItems.size;
-  const selectedNames = Array.from(selectedItems);
+  const selectedIds = Array.from(selectedItems);
   
   // Get the first selected item for context (e.g., determining if folder or file)
-  const firstItem = currentItems.find(i => selectedNames.includes(i.name));
+  // Match IDs (fullPath or name) against item IDs
+  const firstItem = currentItems.find(i => selectedIds.includes(i.fullPath || i.name));
   const isSingleSelection = selectedCount === 1;
   const isFolder = firstItem && firstItem.type === 'dir';
   
@@ -345,6 +349,15 @@ export function buildContextMenuItems() {
       action: () => {
         handleItemClick(firstItem);
       }
+    });
+  }
+  
+  // Action: Share (Single Item only)
+  if (isSingleSelection) {
+    items.push({
+      label: 'Share',
+      icon: '🔗',
+      action: shareSelectedItem
     });
   }
   
@@ -921,10 +934,12 @@ function createDeepSearchResultItem(item) {
   li.className = 'search-result-item';
   
   // Add data attributes for selection/interaction support (Event Delegation)
+  const itemId = item.fullPath || item.name;
   li.dataset.name = item.name;
+  li.dataset.id = itemId;
   li.dataset.type = item.type;
   
-  if (isSelected(item.name)) {
+  if (isSelected(itemId)) {
     li.classList.add('selected');
   }
   
@@ -1072,7 +1087,9 @@ function renderItem(entry, viewMode) {
   const li = document.createElement('li');
   li.className = config.itemClass;
   // Attributes for Event Delegation
+  const itemId = entry.name;
   li.dataset.name = entry.name;
+  li.dataset.id = itemId;
   li.dataset.type = entry.type;
   
   const iconEl = config.iconFn(entry.name, entry.type);
@@ -1145,7 +1162,8 @@ function handleItemClick(entry) {
   if (entry.type === 'dir') {
     setCurrentPathWithRefresh(joinPath(getCurrentPath(), entry.name));
   } else {
-    const path = getCurrentPath();
+    // Use displayPath from deep search results if available, otherwise fall back to current path
+    const path = typeof entry.displayPath !== 'undefined' ? entry.displayPath : getCurrentPath();
     const downloadUrl = DOWNLOAD_BASE + (path ? (`?path=${encodeURIComponent(path)}&file=`) : ('?file=')) + encodeURIComponent(entry.name);
     // Backend handles Content-Disposition (inline vs attachment)
     window.open(downloadUrl, '_blank');

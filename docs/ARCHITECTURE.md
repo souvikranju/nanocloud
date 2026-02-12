@@ -179,7 +179,7 @@ The frontend is built with vanilla JavaScript (ES6+) using a modular architectur
 - **`list.js`**: Handles file list rendering and interactions. Uses **Event Delegation** on the main container to efficiently handle clicks for thousands of items without binding individual listeners.
 - **`contextMenu.js`**: Custom context menu implementation with positioning logic and backdrop handling.
 - **`touchHandlers.js`**: specialized touch logic (long-press detection) for mobile devices, integrating with the context menu.
-- **`itemActions.js`**: Handlers for file operations (delete, rename, move).
+- **`itemActions.js`**: Handlers for file operations (delete, rename, move, share).
 - **`selection.js`**: Manages selection state (single/multi-select).
 
 ### Key Patterns

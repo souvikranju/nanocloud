@@ -1,5 +1,5 @@
 // ui/itemActions.js
-// File and directory operations (delete, rename, move)
+// File and directory operations (delete, rename, move, share)
 
 import { 
   list as apiList, 
@@ -9,9 +9,11 @@ import {
   renameDir as apiRenameDir,
   moveItem as apiMoveItem
 } from '../nanocloudClient.js';
+import { DOWNLOAD_BASE } from '../constants.js';
 import { getCurrentPath, requestRefresh, isOperationAllowed } from '../state.js';
 import { showSuccess, showError, showWarning } from './toast.js';
 import { getSelectedItems, deselectAll } from './selection.js';
+import { getSearchMode, removeSearchResult, renameSearchResult } from './filterSort.js';
 
 let currentItems = [];
 
@@ -21,6 +23,104 @@ let currentItems = [];
  */
 export function updateItemActionsItems(items) {
   currentItems = items;
+}
+
+/**
+ * Copy text to clipboard with fallback for older browsers
+ * @param {string} text - Text to copy
+ * @returns {Promise<boolean>} - Success status
+ */
+async function copyToClipboard(text) {
+  // Try modern Clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn('Clipboard API failed, trying fallback:', err);
+    }
+  }
+  
+  // Fallback for older browsers or insecure contexts
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    textarea.setAttribute('readonly', '');
+    document.body.appendChild(textarea);
+    
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    return success;
+  } catch (err) {
+    console.error('Fallback clipboard copy failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Generate share URL for an item
+ * @param {Object} item - Item to share
+ * @returns {string} - Share URL
+ */
+function getShareUrl(item) {
+  const origin = window.location.origin;
+  const pathname = window.location.pathname;
+  
+  if (item.type === 'dir') {
+    // Folder Logic: Generate deep-link URL
+    // Use fullPath from deep search results if available, otherwise construct from current path
+    const folderPath = item.fullPath || (getCurrentPath() ? `${getCurrentPath()}/${item.name}` : item.name);
+    return `${origin}${pathname}#path=${encodeURIComponent(folderPath)}`;
+  } else {
+    // File Logic: Generate direct download URL
+    // Use displayPath from deep search results if available, otherwise use current path
+    const parentPath = item.displayPath !== undefined ? item.displayPath : getCurrentPath();
+    
+    // Construct absolute download URL
+    const baseUrl = origin + pathname.substring(0, pathname.lastIndexOf('/') + 1);
+    const downloadUrl = `${baseUrl}${DOWNLOAD_BASE}?path=${encodeURIComponent(parentPath)}&file=${encodeURIComponent(item.name)}`;
+    return downloadUrl;
+  }
+}
+
+/**
+ * Share selected item (only works with single selection)
+ */
+export async function shareSelectedItem() {
+  const selectedItems = getSelectedItems();
+  if (selectedItems.size !== 1) {
+    showWarning('Please select exactly one item to share');
+    return;
+  }
+  
+  const itemId = Array.from(selectedItems)[0];
+  const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
+  
+  if (!item) {
+    showError('Item not found');
+    return;
+  }
+  
+  try {
+    const shareUrl = getShareUrl(item);
+    const success = await copyToClipboard(shareUrl);
+    
+    if (success) {
+      const message = item.type === 'dir' ? 'Folder link copied' : 'Download link copied';
+      showSuccess(message);
+    } else {
+      showError('Failed to copy link to clipboard');
+    }
+  } catch (err) {
+    showError(`Error generating share link: ${err.message || err}`);
+  }
 }
 
 /**
@@ -35,15 +135,28 @@ export async function deleteItem(entry) {
   if (!confirm(message)) return;
   
   try {
+    // Use displayPath from deep search results if available, otherwise fall back to current path
+    const path = typeof entry.displayPath !== 'undefined' ? entry.displayPath : getCurrentPath();
+    
     const resp = entry.type === 'dir' 
-      ? await apiDeleteDir(getCurrentPath(), entry.name)
-      : await apiDeleteFile(getCurrentPath(), entry.name);
+      ? await apiDeleteDir(path, entry.name)
+      : await apiDeleteFile(path, entry.name);
     
     if (!resp.success) {
       throw new Error(resp.message || 'Delete failed');
     }
     
     showSuccess(`Deleted "${entry.name}"`);
+    
+    // If we are in deep search mode, we need to remove the item from the search results manually
+    // because requestRefresh only reloads the *current directory*, not the search results.
+    if (getSearchMode() === 'deep') {
+      // Use ID if available, otherwise name (though name is ambiguous in deep search, our ID refactor handles it)
+      // Actually, we should use the ID we used for the operation.
+      // But deleteItem takes `entry`. In deep search entry has fullPath.
+      removeSearchResult(entry.fullPath || entry.name);
+    }
+    
     requestRefresh(true);
   } catch (err) {
     showError(`Error deleting "${entry.name}": ${err.message || err}`);
@@ -57,24 +170,41 @@ export async function deleteSelectedItems() {
   const selectedItems = getSelectedItems();
   if (selectedItems.size === 0) return;
   
-  const itemNames = Array.from(selectedItems);
-  const message = itemNames.length === 1 
-    ? `Delete "${itemNames[0]}"?`
-    : `Delete ${itemNames.length} selected items?`;
+  const itemIds = Array.from(selectedItems);
+  // We need to resolve names for the confirmation message
+  // Note: This logic assumes at least one item can be found in currentItems
+  // If we used IDs that are not names, we must look them up.
+  // In normal view, ID=Name. In deep search, ID=FullPath.
+  // We can't easily display "Name" without finding the item first.
+  
+  // Let's resolve items first to get names
+  const itemsToDelete = [];
+  for (const id of itemIds) {
+    const item = currentItems.find(i => (i.fullPath || i.name) === id);
+    if (item) itemsToDelete.push(item);
+  }
+  
+  if (itemsToDelete.length === 0) return;
+
+  const message = itemsToDelete.length === 1 
+    ? `Delete "${itemsToDelete[0].name}"?`
+    : `Delete ${itemsToDelete.length} selected items?`;
   
   if (!confirm(message)) return;
   
   let successCount = 0;
   let errorCount = 0;
   
-  for (const itemName of itemNames) {
+  for (const item of itemsToDelete) {
     try {
-      const item = currentItems.find(i => i.name === itemName);
-      if (!item) continue;
+      const itemName = item.name;
+      
+      // Use displayPath from deep search results if available, otherwise fall back to current path
+      const path = typeof item.displayPath !== 'undefined' ? item.displayPath : getCurrentPath();
       
       const resp = item.type === 'dir' 
-        ? await apiDeleteDir(getCurrentPath(), itemName)
-        : await apiDeleteFile(getCurrentPath(), itemName);
+        ? await apiDeleteDir(path, itemName)
+        : await apiDeleteFile(path, itemName);
       
       if (resp.success) {
         successCount++;
@@ -90,6 +220,14 @@ export async function deleteSelectedItems() {
   
   if (successCount > 0) {
     showSuccess(`Successfully deleted ${successCount} item${successCount === 1 ? '' : 's'}`);
+    
+    // If in deep search, refresh UI by removing deleted items
+    if (getSearchMode() === 'deep') {
+      // itemsToDelete contains the objects we deleted
+      itemsToDelete.forEach(item => {
+        removeSearchResult(item.fullPath || item.name);
+      });
+    }
   }
   
   if (errorCount > 0) {
@@ -110,13 +248,15 @@ export async function renameSelectedItem() {
     return;
   }
   
-  const itemName = Array.from(selectedItems)[0];
-  const item = currentItems.find(i => i.name === itemName);
+  const itemId = Array.from(selectedItems)[0];
+  const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
   
   if (!item) {
     showError('Item not found');
     return;
   }
+  
+  const itemName = item.name;
   
   // Show rename modal
   const renameModal = document.getElementById('renameModal');
@@ -155,15 +295,24 @@ export async function renameSelectedItem() {
     }
     
     try {
+      // Use displayPath from deep search results if available, otherwise fall back to current path
+      const path = typeof item.displayPath !== 'undefined' ? item.displayPath : getCurrentPath();
+
       const resp = item.type === 'dir'
-        ? await apiRenameDir(getCurrentPath(), itemName, newName)
-        : await apiRenameFile(getCurrentPath(), itemName, newName);
+        ? await apiRenameDir(path, itemName, newName)
+        : await apiRenameFile(path, itemName, newName);
       
       if (!resp.success) {
         throw new Error(resp.message || 'Rename failed');
       }
       
       showSuccess(`Renamed "${itemName}" to "${newName}"`);
+      
+      // If in deep search, update the item in the search results
+      if (getSearchMode() === 'deep') {
+        renameSearchResult(itemId, newName);
+      }
+      
       renameModal.classList.add('hidden');
       deselectAll();
       requestRefresh(true);
@@ -208,7 +357,7 @@ export async function moveSelectedItems() {
   const selectedItems = getSelectedItems();
   if (selectedItems.size === 0) return;
   
-  const itemNames = Array.from(selectedItems);
+  const itemIds = Array.from(selectedItems);
   
   // Show move modal
   const moveModal = document.getElementById('moveModal');
@@ -261,10 +410,12 @@ export async function moveSelectedItems() {
     let successCount = 0;
     let errorCount = 0;
     
-    for (const itemName of itemNames) {
+    for (const id of itemIds) {
       try {
-        const item = currentItems.find(i => i.name === itemName);
+        const item = currentItems.find(i => (i.fullPath || i.name) === id);
         if (!item) continue;
+        
+        const itemName = item.name;
         
         const resp = await apiMoveItem(
           getCurrentPath(),
