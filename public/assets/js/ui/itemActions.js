@@ -1,5 +1,5 @@
 // ui/itemActions.js
-// File and directory operations (delete, rename, move)
+// File and directory operations (delete, rename, move, share)
 
 import { 
   list as apiList, 
@@ -9,6 +9,7 @@ import {
   renameDir as apiRenameDir,
   moveItem as apiMoveItem
 } from '../nanocloudClient.js';
+import { DOWNLOAD_BASE } from '../constants.js';
 import { getCurrentPath, requestRefresh, isOperationAllowed } from '../state.js';
 import { showSuccess, showError, showWarning } from './toast.js';
 import { getSelectedItems, deselectAll } from './selection.js';
@@ -22,6 +23,104 @@ let currentItems = [];
  */
 export function updateItemActionsItems(items) {
   currentItems = items;
+}
+
+/**
+ * Copy text to clipboard with fallback for older browsers
+ * @param {string} text - Text to copy
+ * @returns {Promise<boolean>} - Success status
+ */
+async function copyToClipboard(text) {
+  // Try modern Clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn('Clipboard API failed, trying fallback:', err);
+    }
+  }
+  
+  // Fallback for older browsers or insecure contexts
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    textarea.setAttribute('readonly', '');
+    document.body.appendChild(textarea);
+    
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    return success;
+  } catch (err) {
+    console.error('Fallback clipboard copy failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Generate share URL for an item
+ * @param {Object} item - Item to share
+ * @returns {string} - Share URL
+ */
+function getShareUrl(item) {
+  const origin = window.location.origin;
+  const pathname = window.location.pathname;
+  
+  if (item.type === 'dir') {
+    // Folder Logic: Generate deep-link URL
+    // Use fullPath from deep search results if available, otherwise construct from current path
+    const folderPath = item.fullPath || (getCurrentPath() ? `${getCurrentPath()}/${item.name}` : item.name);
+    return `${origin}${pathname}#path=${encodeURIComponent(folderPath)}`;
+  } else {
+    // File Logic: Generate direct download URL
+    // Use displayPath from deep search results if available, otherwise use current path
+    const parentPath = item.displayPath !== undefined ? item.displayPath : getCurrentPath();
+    
+    // Construct absolute download URL
+    const baseUrl = origin + pathname.substring(0, pathname.lastIndexOf('/') + 1);
+    const downloadUrl = `${baseUrl}${DOWNLOAD_BASE}?path=${encodeURIComponent(parentPath)}&file=${encodeURIComponent(item.name)}`;
+    return downloadUrl;
+  }
+}
+
+/**
+ * Share selected item (only works with single selection)
+ */
+export async function shareSelectedItem() {
+  const selectedItems = getSelectedItems();
+  if (selectedItems.size !== 1) {
+    showWarning('Please select exactly one item to share');
+    return;
+  }
+  
+  const itemId = Array.from(selectedItems)[0];
+  const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
+  
+  if (!item) {
+    showError('Item not found');
+    return;
+  }
+  
+  try {
+    const shareUrl = getShareUrl(item);
+    const success = await copyToClipboard(shareUrl);
+    
+    if (success) {
+      const message = item.type === 'dir' ? 'Folder link copied' : 'Download link copied';
+      showSuccess(message);
+    } else {
+      showError('Failed to copy link to clipboard');
+    }
+  } catch (err) {
+    showError(`Error generating share link: ${err.message || err}`);
+  }
 }
 
 /**

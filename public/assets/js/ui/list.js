@@ -50,6 +50,7 @@ import {
   deleteSelectedItems, 
   renameSelectedItem, 
   moveSelectedItems,
+  shareSelectedItem,
   updateItemActionsItems
 } from './itemActions.js';
 import { 
@@ -348,6 +349,15 @@ export function buildContextMenuItems() {
       action: () => {
         handleItemClick(firstItem);
       }
+    });
+  }
+  
+  // Action: Share (Single Item only)
+  if (isSingleSelection) {
+    items.push({
+      label: 'Share',
+      icon: '🔗',
+      action: shareSelectedItem
     });
   }
   

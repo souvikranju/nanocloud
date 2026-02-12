@@ -60,6 +60,7 @@ Designed to solve the "How do I send you these photos?" problem.
 - **🎬 Media Streaming**: Stream videos, audio, and view images directly in browser
 - **📦 Drag & Drop**: Upload files and folders by dragging them anywhere on the page
 - **🖱️ Context Menu**: Right-click (desktop) or long-press (mobile) for quick actions
+- **🔗 Share Links**: Generate direct download links or deep links to folders with one click
 - **🔄 Self-Update**: Built-in update system to keep your installation current
 - **♻️ Resumable Uploads**: Chunked uploads with cross-device resume capability for unlimited file sizes
 
@@ -180,6 +181,7 @@ NanoCloud automatically uses chunked uploads for files larger than 2MB, enabling
 4. **Sort**: Choose from dropdown (Name, Date, Size)
 5. **Multi-Select**: `Ctrl/Cmd + Click` or use "Select All"
 6. **Batch Operations**: Select multiple items, then use action buttons
+7. **Share**: Right-click to copy share link
 
 ## 🏗️ Architecture
 
