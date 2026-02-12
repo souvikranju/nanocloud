@@ -92,20 +92,25 @@ function getShareUrl(item) {
 
 /**
  * Share selected item (only works with single selection)
+ * @param {Object} targetItem - Optional specific item to share
  */
-export async function shareSelectedItem() {
-  const selectedItems = getSelectedItems();
-  if (selectedItems.size !== 1) {
-    showWarning('Please select exactly one item to share');
-    return;
-  }
-  
-  const itemId = Array.from(selectedItems)[0];
-  const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
+export async function shareSelectedItem(targetItem = null) {
+  let item = targetItem;
   
   if (!item) {
-    showError('Item not found');
-    return;
+    const selectedItems = getSelectedItems();
+    if (selectedItems.size !== 1) {
+      showWarning('Please select exactly one item to share');
+      return;
+    }
+    
+    const itemId = Array.from(selectedItems)[0];
+    item = currentItems.find(i => (i.fullPath || i.name) === itemId);
+    
+    if (!item) {
+      showError('Item not found');
+      return;
+    }
   }
   
   try {
@@ -165,26 +170,31 @@ export async function deleteItem(entry) {
 
 /**
  * Delete selected items
+ * @param {Array} targetItems - Optional array of specific items to delete
  */
-export async function deleteSelectedItems() {
-  const selectedItems = getSelectedItems();
-  if (selectedItems.size === 0) return;
+export async function deleteSelectedItems(targetItems = null) {
+  let itemsToDelete = targetItems;
   
-  const itemIds = Array.from(selectedItems);
-  // We need to resolve names for the confirmation message
-  // Note: This logic assumes at least one item can be found in currentItems
-  // If we used IDs that are not names, we must look them up.
-  // In normal view, ID=Name. In deep search, ID=FullPath.
-  // We can't easily display "Name" without finding the item first.
-  
-  // Let's resolve items first to get names
-  const itemsToDelete = [];
-  for (const id of itemIds) {
-    const item = currentItems.find(i => (i.fullPath || i.name) === id);
-    if (item) itemsToDelete.push(item);
+  if (!itemsToDelete) {
+    const selectedItems = getSelectedItems();
+    if (selectedItems.size === 0) return;
+    
+    const itemIds = Array.from(selectedItems);
+    // We need to resolve names for the confirmation message
+    // Note: This logic assumes at least one item can be found in currentItems
+    // If we used IDs that are not names, we must look them up.
+    // In normal view, ID=Name. In deep search, ID=FullPath.
+    // We can't easily display "Name" without finding the item first.
+    
+    // Let's resolve items first to get names
+    itemsToDelete = [];
+    for (const id of itemIds) {
+      const item = currentItems.find(i => (i.fullPath || i.name) === id);
+      if (item) itemsToDelete.push(item);
+    }
+    
+    if (itemsToDelete.length === 0) return;
   }
-  
-  if (itemsToDelete.length === 0) return;
 
   const message = itemsToDelete.length === 1 
     ? `Delete "${itemsToDelete[0].name}"?`
@@ -240,20 +250,28 @@ export async function deleteSelectedItems() {
 
 /**
  * Rename selected item (only works with single selection)
+ * @param {Object} targetItem - Optional specific item to rename
  */
-export async function renameSelectedItem() {
-  const selectedItems = getSelectedItems();
-  if (selectedItems.size !== 1) {
-    showWarning('Please select exactly one item to rename');
-    return;
-  }
-  
-  const itemId = Array.from(selectedItems)[0];
-  const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
+export async function renameSelectedItem(targetItem = null) {
+  let item = targetItem;
+  let itemId = null;
   
   if (!item) {
-    showError('Item not found');
-    return;
+    const selectedItems = getSelectedItems();
+    if (selectedItems.size !== 1) {
+      showWarning('Please select exactly one item to rename');
+      return;
+    }
+    
+    itemId = Array.from(selectedItems)[0];
+    item = currentItems.find(i => (i.fullPath || i.name) === itemId);
+    
+    if (!item) {
+      showError('Item not found');
+      return;
+    }
+  } else {
+    itemId = item.fullPath || item.name;
   }
   
   const itemName = item.name;
@@ -352,12 +370,19 @@ export async function renameSelectedItem() {
 
 /**
  * Move selected items
+ * @param {Array} targetItems - Optional array of specific items to move
  */
-export async function moveSelectedItems() {
-  const selectedItems = getSelectedItems();
-  if (selectedItems.size === 0) return;
+export async function moveSelectedItems(targetItems = null) {
+  let itemIds = [];
   
-  const itemIds = Array.from(selectedItems);
+  if (targetItems) {
+    // Use provided items
+    itemIds = targetItems.map(item => item.fullPath || item.name);
+  } else {
+    const selectedItems = getSelectedItems();
+    if (selectedItems.size === 0) return;
+    itemIds = Array.from(selectedItems);
+  }
   
   // Show move modal
   const moveModal = document.getElementById('moveModal');

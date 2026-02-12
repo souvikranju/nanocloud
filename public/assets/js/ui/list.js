@@ -275,7 +275,7 @@ function handleListClick(event) {
  * Handle right-click context menu via Event Delegation.
  * 
  * Behavior:
- * - If right-clicking an unselected item: Select it exclusively, then show menu.
+ * - If right-clicking an unselected item: Show menu for that item WITHOUT selecting it.
  * - If right-clicking a selected item: Keep selection, show menu for all selected items.
  * 
  * @param {MouseEvent} event 
@@ -297,36 +297,55 @@ function handleContextMenu(event) {
   const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
   if (!item) return;
   
-  // Selection logic
+  // Check if item is already selected
   if (!isSelected(itemId)) {
-    // Right-clicking outside current selection: Reset selection to this item
-    deselectAll();
-    toggleItemSelection(itemId, true);
+    // Right-clicking unselected item: Use context item approach
+    // Add temporary visual highlight
+    target.classList.add('context-active');
+    
+    // Build context menu for this specific item
+    const menuItems = buildContextMenuItems(item);
+    
+    // Show context menu with cleanup callback
+    showContextMenu(event.clientX, event.clientY, menuItems, () => {
+      // Remove temporary highlight when menu closes
+      target.classList.remove('context-active');
+    });
+  } else {
+    // Right-clicking selected item: Use normal selection-based menu
+    const menuItems = buildContextMenuItems();
+    showContextMenu(event.clientX, event.clientY, menuItems);
   }
-  
-  // Build context menu items based on current selection state
-  const menuItems = buildContextMenuItems();
-  
-  // Show context menu at mouse coordinates
-  showContextMenu(event.clientX, event.clientY, menuItems);
 }
 
 /**
  * Construct the context menu configuration array based on current selection.
  * Checks permissions (read-only, etc.) and item types.
  * 
+ * @param {Object} contextItem - Optional specific item for context menu (when right-clicking unselected item)
  * @returns {Array<Object>} Array of menu item objects
  */
-export function buildContextMenuItems() {
-  const selectedItems = getSelectedItems();
-  const selectedCount = selectedItems.size;
-  const selectedIds = Array.from(selectedItems);
+export function buildContextMenuItems(contextItem = null) {
+  let selectedCount, firstItem, isSingleSelection, isFolder;
   
-  // Get the first selected item for context (e.g., determining if folder or file)
-  // Match IDs (fullPath or name) against item IDs
-  const firstItem = currentItems.find(i => selectedIds.includes(i.fullPath || i.name));
-  const isSingleSelection = selectedCount === 1;
-  const isFolder = firstItem && firstItem.type === 'dir';
+  if (contextItem) {
+    // Using context item (right-clicked unselected item)
+    selectedCount = 1;
+    firstItem = contextItem;
+    isSingleSelection = true;
+    isFolder = contextItem.type === 'dir';
+  } else {
+    // Using global selection
+    const selectedItems = getSelectedItems();
+    selectedCount = selectedItems.size;
+    const selectedIds = Array.from(selectedItems);
+    
+    // Get the first selected item for context (e.g., determining if folder or file)
+    // Match IDs (fullPath or name) against item IDs
+    firstItem = currentItems.find(i => selectedIds.includes(i.fullPath || i.name));
+    isSingleSelection = selectedCount === 1;
+    isFolder = firstItem && firstItem.type === 'dir';
+  }
   
   const items = [];
   
@@ -337,6 +356,7 @@ export function buildContextMenuItems() {
       icon: '📂',
       action: () => {
         handleItemClick(firstItem);
+        deselectAll();
       }
     });
   }
@@ -348,6 +368,7 @@ export function buildContextMenuItems() {
       icon: '⬇️',
       action: () => {
         handleItemClick(firstItem);
+        deselectAll();
       }
     });
   }
@@ -357,7 +378,14 @@ export function buildContextMenuItems() {
     items.push({
       label: 'Share',
       icon: '🔗',
-      action: shareSelectedItem
+      action: async () => {
+        if (contextItem) {
+          await shareSelectedItem(contextItem);
+        } else {
+          await shareSelectedItem();
+        }
+        deselectAll();
+      }
     });
   }
   
@@ -372,7 +400,7 @@ export function buildContextMenuItems() {
     items.push({
       label: 'Rename',
       icon: '✏️',
-      action: renameSelectedItem,
+      action: contextItem ? () => renameSelectedItem(contextItem) : renameSelectedItem,
       disabled: !renameCheck.allowed
     });
   }
@@ -383,7 +411,7 @@ export function buildContextMenuItems() {
   items.push({
     label: selectedCount > 1 ? `Move ${selectedCount} items` : 'Move',
     icon: '📁',
-    action: moveSelectedItems,
+    action: contextItem ? () => moveSelectedItems([contextItem]) : moveSelectedItems,
     disabled: !moveCheck.allowed || searchMode === 'deep'
   });
   
@@ -395,7 +423,7 @@ export function buildContextMenuItems() {
   items.push({
     label: selectedCount > 1 ? `Delete ${selectedCount} items` : 'Delete',
     icon: '🗑️',
-    action: deleteSelectedItems,
+    action: contextItem ? () => deleteSelectedItems([contextItem]) : deleteSelectedItems,
     disabled: !deleteCheck.allowed,
     danger: true // Red styling
   });
@@ -1159,6 +1187,9 @@ function renderListView(items) {
  * @param {Object} entry 
  */
 function handleItemClick(entry) {
+  // Always clear selection when performing a primary action (Navigation/Download)
+  deselectAll();
+
   if (entry.type === 'dir') {
     setCurrentPathWithRefresh(joinPath(getCurrentPath(), entry.name));
   } else {

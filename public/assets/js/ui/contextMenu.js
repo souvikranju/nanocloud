@@ -4,6 +4,7 @@
 // DOM reference
 let contextMenuEl = null;
 let backdropEl = null;
+let currentOnClose = null;
 
 /**
  * Initialize the context menu
@@ -32,6 +33,19 @@ export function initContextMenu() {
     contextMenuEl = document.getElementById('contextMenu');
     backdropEl = document.querySelector('.context-menu-backdrop');
   }
+  
+  // Add global keyboard listener for Escape key
+  document.addEventListener('keydown', handleKeyDown);
+}
+
+/**
+ * Handle keyboard events
+ * @param {KeyboardEvent} e 
+ */
+function handleKeyDown(e) {
+  if (e.key === 'Escape' && isContextMenuVisible()) {
+    hideContextMenu();
+  }
 }
 
 /**
@@ -39,8 +53,10 @@ export function initContextMenu() {
  * @param {number} x - Client X coordinate
  * @param {number} y - Client Y coordinate
  * @param {Array<Object>} items - Array of menu items { label, icon, action, disabled, danger }
+ * @param {Function} onClose - Optional callback when menu closes
  */
-export function showContextMenu(x, y, items) {
+export function showContextMenu(x, y, items, onClose = null) {
+  currentOnClose = onClose;
   if (!contextMenuEl || !items || items.length === 0) return;
   
   // Build menu content
@@ -113,6 +129,12 @@ export function showContextMenu(x, y, items) {
 export function hideContextMenu() {
   if (contextMenuEl) contextMenuEl.classList.remove('visible');
   if (backdropEl) backdropEl.classList.remove('visible');
+  
+  // Call onClose callback if it exists
+  if (currentOnClose) {
+    currentOnClose();
+    currentOnClose = null;
+  }
 }
 
 /**

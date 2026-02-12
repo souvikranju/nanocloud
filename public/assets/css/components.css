@@ -257,7 +257,8 @@
   transform: translateY(-2px);
 }
 
-.file-card.selected {
+.file-card.selected,
+.file-card.context-active {
   border-color: var(--primary-500);
   background: var(--primary-50);
   box-shadow: var(--shadow-md);
@@ -279,7 +280,8 @@
   background: var(--gray-50);
 }
 
-.file-list-item.selected {
+.file-list-item.selected,
+.file-list-item.context-active {
   background: var(--primary-50);
   border-color: var(--primary-200);
 }
@@ -1438,7 +1440,8 @@ body.drag-active::after {
   transform: translateY(-1px);
 }
 
-.search-result-item.selected {
+.search-result-item.selected,
+.search-result-item.context-active {
   background: var(--primary-50);
   border-color: var(--primary-500);
   box-shadow: var(--shadow-md);
