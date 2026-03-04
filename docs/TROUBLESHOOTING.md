@@ -251,10 +251,18 @@ sudo tail -f /var/log/php-fpm/error.log
 **Causes & Solutions:**
 
 1. **Old JavaScript Cache**
-   ```javascript
-   // Hard refresh browser
-   // Ctrl+Shift+R (Windows/Linux)
-   // Cmd+Shift+R (Mac)
+
+   After a NanoCloud update, this should no longer occur — the built-in cache-busting mechanism automatically stamps all CSS and JavaScript URLs with the current version string, so the browser fetches fresh assets on the next normal page load.
+
+   If you are seeing stale JS after an update, try a normal refresh first (`F5` / `Ctrl+R`). If the problem persists (e.g., after a manual file replacement that did not update `version.json`), force a hard refresh:
+   ```
+   Ctrl+Shift+R  (Windows / Linux)
+   Cmd+Shift+R   (Mac)
+   ```
+   You can also manually bump `version.json` to force a cache bust without a full update:
+   ```bash
+   # Increment the version string to invalidate all cached assets
+   echo '{"version":"v0.0.1-cache-reset","updated":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > version.json
    ```
 
 2. **API Endpoint Wrong**

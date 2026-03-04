@@ -13,8 +13,10 @@ declare(strict_types=1);
 // GitHub repository
 define('GITHUB_REPO', 'souvikranju/nanocloud');
 
+// Shared version helper (defines VERSION_FILE + get_current_version())
+require dirname(__DIR__) . '/src/version.php';
+
 // Paths (adjusted for v2.0 structure)
-define('VERSION_FILE', dirname(__DIR__) . '/version.json');
 define('TEMP_DIR', dirname(__DIR__) . '/.temp');
 define('BACKUP_DIR', TEMP_DIR . '/backup');
 define('DOWNLOAD_DIR', TEMP_DIR . '/update_download');
@@ -98,24 +100,6 @@ function rrmdir(string $dir): bool
     }
     
     return @rmdir($dir);
-}
-
-/**
- * Get current version from version.json
- */
-function get_current_version(): ?array
-{
-    if (!file_exists(VERSION_FILE)) {
-        return null;
-    }
-    
-    $content = @file_get_contents(VERSION_FILE);
-    if ($content === false) {
-        return null;
-    }
-    
-    $data = @json_decode($content, true);
-    return $data ?: null;
 }
 
 /**

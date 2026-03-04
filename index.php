@@ -12,14 +12,10 @@
  */
 
 // Read the current app version for cache-busting
-$versionFile = __DIR__ . '/version.json';
-$version = '0';
-if (file_exists($versionFile)) {
-    $data = @json_decode(@file_get_contents($versionFile), true);
-    if (!empty($data['version'])) {
-        $version = $data['version'];
-    }
-}
+require __DIR__ . '/src/version.php';
+
+$versionData = get_current_version();
+$version = $versionData['version'] ?? '0';
 
 header('Location: public/index.php?v=' . urlencode($version));
 exit;

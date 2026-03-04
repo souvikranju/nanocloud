@@ -183,6 +183,70 @@ The frontend is built with vanilla JavaScript (ES6+) using a modular architectur
 - **`selection.js`**: Manages selection state (single/multi-select, pivot tracking, range selection). Exports `setPivot`/`getPivot` and `selectRange` in addition to the core selection API (`getSelectedItems`, `toggleItemSelection`, `selectAll`, `deselectAll`, `clearSelection`, `isSelected`).
 - **`theme.js`**: Theme management module. Reads the user's saved preference from `localStorage`, falls back to the OS-level `prefers-color-scheme` media query, and applies the effective theme by setting `data-theme` on `<html>`. Listens for OS-level changes and auto-switches when no manual override is saved. Wires the header toggle button (🌙/☀️). Exports `initTheme()`, `toggleTheme()`, and `getTheme()`.
 
+### Cache Busting
+
+`public/index.php` is a PHP file (not static HTML) that reads `version.json` on every request and stamps all asset URLs with the current version string. This ensures browsers always load fresh assets after an update without requiring a hard refresh.
+
+#### Three-Layer Strategy
+
+| Layer | Mechanism | Covers |
+|-------|-----------|--------|
+| **HTML page itself** | Root `index.php` redirector appends `?v=VERSION` to the redirect target URL | `public/index.php` |
+| **Directly-referenced assets** | `?v=VERSION` appended to every `<link>` and `<script>` tag | All 6 CSS files + `main.js` |
+| **ES module graph** | Inline `<script type="importmap">` maps every module specifier to its versioned URL | All imported JS modules, including dynamic `import()` calls |
+
+#### How It Works
+
+```
+User visits http://host/
+    ↓
+index.php (root) reads version.json → "v1.1.0"
+    ↓
+Redirects to: public/index.php?v=v1.1.0   ← HTML page cache-busted
+    ↓
+public/index.php (PHP) reads version.json → "v1.1.0"
+    ↓
+Outputs import map:
+  "./assets/js/constants.js" → "./assets/js/constants.js?v=v1.1.0"
+  "./assets/js/state.js"     → "./assets/js/state.js?v=v1.1.0"
+  "./assets/js/ui/list.js"   → "./assets/js/ui/list.js?v=v1.1.0"
+  ... (all modules, auto-discovered)
+    ↓
+CSS links: variables.css?v=v1.1.0, base.css?v=v1.1.0, ...
+    ↓
+<script type="module" src="assets/js/main.js?v=v1.1.0">
+    ↓
+Browser loads main.js?v=v1.1.0 (fresh)
+    ↓
+main.js: import './constants.js'
+    ↓
+Browser checks import map → fetches constants.js?v=v1.1.0 (fresh)
+```
+
+#### Import Map Generation
+
+The import map is generated at runtime by PHP scanning `assets/js/` recursively:
+
+```php
+$iter = new RecursiveIteratorIterator(
+    new RecursiveDirectoryIterator($jsRoot, RecursiveDirectoryIterator::SKIP_DOTS)
+);
+foreach ($iter as $file) {
+    if ($file->getExtension() === 'js') {
+        $key           = './assets/js/' . $relativePath;
+        $imports[$key] = $key . '?v=' . $version;
+    }
+}
+```
+
+This means **no hardcoded module list is maintained** — any new `.js` file added in a future update is automatically included in the import map.
+
+#### Trigger
+
+The only action that triggers a cache bust is what the update system already does: write a new version string to `version.json`. No other changes to the update pipeline are needed.
+
+---
+
 ### CSS Architecture (`public/assets/css/`)
 
 The frontend uses a **modular, 6-file CSS architecture**. All files are loaded in order in `index.php`:

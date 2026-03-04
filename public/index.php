@@ -21,14 +21,10 @@
  */
 
 // ── 1. Read app version ───────────────────────────────────────────────────
-$versionFile = dirname(__DIR__) . '/version.json';
-$v = '0';
-if (file_exists($versionFile)) {
-    $data = @json_decode(@file_get_contents($versionFile), true);
-    if (!empty($data['version'])) {
-        $v = $data['version'];
-    }
-}
+require dirname(__DIR__) . '/src/version.php';
+
+$versionData = get_current_version();
+$v  = $versionData['version'] ?? '0';
 $ve = htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); // safe for HTML attribute output
 
 // ── 2. Build import map for all JS modules ────────────────────────────────

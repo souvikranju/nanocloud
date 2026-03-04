@@ -84,11 +84,11 @@ ls -la /path/to/nanocloud
    ↓
 10. Deploy with rsync (atomic operation)
     ↓
-11. Update version.json
+11. Update version.json  ← also triggers cache bust on next page load
     ↓
 12. Cleanup temporary files
     ↓
-13. Success! Page reloads
+13. Success! Page reloads with all-fresh assets (no hard refresh needed)
 ```
 
 ## What Gets Preserved
@@ -449,9 +449,12 @@ The `version.json` file tracks the current version:
 **Location:** `/path/to/nanocloud/version.json`
 
 **Purpose:**
-- Displayed in UI
-- Used for update comparison
-- Updated automatically during updates
+- **Displayed in UI** — shown in the Info modal
+- **Used for update comparison** — compared against the latest GitHub release tag
+- **Updated automatically during updates** — written as the final step of a successful update
+- **Drives cache busting** — read by `index.php` (root redirector) and `public/index.php` on every page load to stamp all asset URLs with `?v=VERSION`, ensuring browsers fetch fresh CSS and JavaScript after each update without requiring a hard refresh
+
+> See [Architecture Guide](ARCHITECTURE.md#cache-busting) for a full explanation of the three-layer cache-busting strategy.
 
 ## See Also
 
