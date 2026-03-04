@@ -52,6 +52,7 @@ Designed to solve the "How do I send you these photos?" problem.
 - **🔄 Client-Side Sorting**: Sort by name, date, or size (ascending/descending) - all in browser
 - **📊 Storage Monitoring**: Real-time storage usage visualization
 - **🎨 Modern UI**: Clean, responsive design with grid and list view modes
+- **🌙 Dark Mode**: System-aware dark/light theme
 - **📱 Mobile Optimized**: Touch-friendly interface with press-and-hold selection
 - **⚡ Fast Performance**: Optimized for speed with concurrent uploads
 - **🔒 Secure**: Path traversal protection and input sanitization

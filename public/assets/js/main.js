@@ -21,6 +21,7 @@ import { uploadFiles } from './uploader.js';
 import { updateChecker } from './updateChecker.js';
 import { isSearchActive } from './ui/filterSort.js';
 import { initInputHandlers } from './ui/inputHandlers.js';
+import { initTheme } from './ui/theme.js';
 
 
 // =====================================
@@ -86,6 +87,10 @@ const DOM = {
 // MODULE INITIALIZATION
 // =====================================
 function initializeModules() {
+  // Initialize theme system (must be first so the correct theme is
+  // applied before any other UI module renders content)
+  initTheme();
+
   // Initialize toast notification system
   initToast({
     toastContainer: DOM.toastContainer,

@@ -4,7 +4,7 @@
 - [x] Right click context menu on list
 - [x] Generate folder/file share URL
 - [x] Improve keyboard shortcuts
-- [ ] Dark theme
+- [x] Dark theme
 - [ ] Frontend settings to view hidden items with backend control settings
 
 ### Far

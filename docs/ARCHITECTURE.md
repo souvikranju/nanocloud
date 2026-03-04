@@ -181,8 +181,94 @@ The frontend is built with vanilla JavaScript (ES6+) using a modular architectur
 - **`inputHandlers.js`**: Single consolidated module for **all** keyboard shortcuts and touch/gesture handling. Replaces the former `keyboardShortcuts.js` and `touchHandlers.js`. Exports `initInputHandlers(config)`, `updateInputHandlerItems(items)`, and `cleanupInputHandlers()`. See [Key Patterns](#key-patterns) below.
 - **`itemActions.js`**: Handlers for file operations (delete, rename, move, share).
 - **`selection.js`**: Manages selection state (single/multi-select, pivot tracking, range selection). Exports `setPivot`/`getPivot` and `selectRange` in addition to the core selection API (`getSelectedItems`, `toggleItemSelection`, `selectAll`, `deselectAll`, `clearSelection`, `isSelected`).
+- **`theme.js`**: Theme management module. Reads the user's saved preference from `localStorage`, falls back to the OS-level `prefers-color-scheme` media query, and applies the effective theme by setting `data-theme` on `<html>`. Listens for OS-level changes and auto-switches when no manual override is saved. Wires the header toggle button (🌙/☀️). Exports `initTheme()`, `toggleTheme()`, and `getTheme()`.
+
+### CSS Architecture (`public/assets/css/`)
+
+The frontend uses a **modular, 6-file CSS architecture**. All files are loaded in order in `index.php`:
+
+| File | Purpose |
+|------|---------|
+| `variables.css` | Design tokens — the **single source of truth** for all theme colours |
+| `base.css` | CSS reset and `<body>` defaults |
+| `layout.css` | Page-level layout (header, container, main content, selection bar) |
+| `components.css` | All reusable UI components (buttons, modals, cards, toasts, etc.) |
+| `utilities.css` | Utility classes (`.hidden`, `.sr-only`, animations) |
+| `responsive.css` | Responsive / breakpoint overrides |
+
+#### `variables.css` — Three-Section Structure
+
+`variables.css` is divided into three clearly labelled sections. **Expert users only ever need to edit this one file to customise themes.**
+
+```
+SECTION 1 · PALETTE
+  Raw hex values (--primary-500, --gray-900, etc.)
+  Theme-agnostic tokens (typography, spacing, radius, z-index, transitions)
+  These rarely need changing.
+
+SECTION 2 · LIGHT THEME  (:root, [data-theme="light"])
+  Semantic tokens that resolve to palette values.
+  --color-bg-body, --color-bg-elevated, --color-text-primary, etc.
+  Edit here to customise the light theme.
+
+SECTION 3 · DARK THEME  ([data-theme="dark"])
+  Overrides only the semantic tokens that differ in dark mode.
+  Edit here to customise the dark theme.
+```
+
+#### Semantic Variable Layer
+
+Components **never** reference raw palette values or hardcoded colours. They only reference semantic tokens:
+
+```css
+/* Correct — responds to theme changes */
+background: var(--color-bg-elevated);
+color: var(--color-text-primary);
+border: 1px solid var(--color-border-secondary);
+
+/* Wrong — hardcoded, breaks dark mode */
+background: white;
+color: #212121;
+```
+
+This means swapping a theme is purely a CSS variable override — no component CSS changes required.
+
+#### Adding a New Theme
+
+1. Add a `[data-theme="your-theme"] { ... }` block in `variables.css` (after Section 3), overriding whichever semantic tokens differ.
+2. Add the theme name to `VALID_THEMES` in `public/assets/js/ui/theme.js`.
+3. Extend the toggle cycle in `toggleTheme()` if desired.
 
 ### Key Patterns
+
+#### Theme System (`theme.js`)
+
+The theme system uses a `data-theme` attribute on `<html>` to drive all visual switching via CSS custom property overrides. No JavaScript touches individual component colours.
+
+**Priority chain** (highest → lowest):
+1. Saved manual preference in `localStorage` (`'light'` or `'dark'`)
+2. OS-level `prefers-color-scheme` media query
+3. Default: `'light'`
+
+**Anti-FOUC (Flash of Unstyled Content):**
+An inline `<script>` in `<head>` — placed *before* any CSS `<link>` tags — reads `localStorage` and sets `data-theme` on `<html>` synchronously. This means the correct theme is applied before the browser paints a single pixel, eliminating any flash.
+
+```html
+<!-- In <head>, before CSS links -->
+<script>
+  (function () {
+    var saved = localStorage.getItem('nanocloud-theme');
+    var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+```
+
+**OS preference live-update:**
+`theme.js` registers a `matchMedia` change listener. If the OS switches colour scheme and the user has *not* saved a manual override, the UI switches automatically without a page reload.
+
+**Toggle button:**
+A 🌙/☀️ button (`#themeToggleBtn`) in the header title row. Clicking it calls `toggleTheme()`, which flips the theme, saves the new value to `localStorage`, and updates the button's icon and `aria-pressed` attribute.
 
 #### Event Delegation
 To maximize performance with large file lists, `list.js` uses a single event listener on the parent container (`#fileList`) to handle:
@@ -517,6 +603,12 @@ foreach ($items as $item) {
 - [ ] Multi-select works
 - [ ] Keyboard shortcuts work
 - [ ] Touch gestures work
+- [ ] Light theme renders correctly
+- [ ] Dark theme renders correctly
+- [ ] Theme toggle button switches theme
+- [ ] Theme preference persists across page reloads
+- [ ] OS preference auto-applies on first visit (no saved preference)
+- [ ] No flash of unstyled content on page load
 
 ### Security
 - [ ] Path traversal blocked
@@ -546,6 +638,12 @@ foreach ($items as $item) {
 2. Add to `config/local.php.example`
 3. Document in README
 4. Use via `Config::get('KEY')`
+
+### Adding a New Theme
+1. Add a `[data-theme="your-theme"] { ... }` block in `public/assets/css/variables.css`
+2. Override whichever semantic tokens differ from the light theme
+3. Add the theme name to `VALID_THEMES` in `public/assets/js/ui/theme.js`
+4. Extend the toggle cycle in `toggleTheme()` if desired
 
 ## Maintenance Guidelines
 

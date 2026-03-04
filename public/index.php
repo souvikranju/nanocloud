@@ -5,6 +5,14 @@
     <title>NanoCloud</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/x-icon" href="assets/images/favicon.ico">
+    <!-- Anti-FOUC: apply saved theme before first paint so there is no flash -->
+    <script>
+      (function () {
+        var saved = localStorage.getItem('nanocloud-theme');
+        var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
     <!-- Modular CSS Architecture -->
     <link rel="stylesheet" href="assets/css/variables.css">
     <link rel="stylesheet" href="assets/css/base.css">
@@ -22,6 +30,10 @@
                     <div class="header-title-row">
                         <img src="assets/images/logo.png" alt="NanoCloud Logo" class="header-logo">
                         <h1>NanoCloud</h1>
+                        <button class="theme-toggle-btn" id="themeToggleBtn"
+                                title="Switch to Dark Mode"
+                                aria-label="Switch to Dark Mode"
+                                aria-pressed="false">🌙</button>
                         <button class="info-btn" id="infoBtn" title="User Guide & Info">ℹ</button>
                     </div>
                     <p class="subtitle">
