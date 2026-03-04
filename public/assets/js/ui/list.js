@@ -1,7 +1,7 @@
 /**
  * @file public/assets/js/ui/list.js
  * @module UI/List
- * 
+ *
  * @description
  * Main controller for the file list UI component. This module is responsible for:
  * 1. Rendering file items in Grid or List view.
@@ -9,14 +9,14 @@
  * 3. Handling user interactions via Event Delegation (clicks, double-clicks, right-clicks).
  * 4. Integrating with other UI subsystems (Selection, Context Menu, Search, Filter/Sort).
  * 5. Managing Loading states and Empty states.
- * 
+ *
  * Key Architecture Pattern:
  * - **Event Delegation**: Instead of binding listeners to thousands of individual file items,
  *   a single listener on the parent container (#fileList) handles all item interactions.
  *   This significantly improves performance and memory usage for large directories.
  */
 
-import { 
+import {
   DOWNLOAD_BASE,
   VIEW_MODE_GRID,
   VIEW_MODE_LIST,
@@ -25,37 +25,48 @@ import {
 } from '../constants.js';
 import { joinPath } from '../utils.js';
 import { list as apiList } from '../nanocloudClient.js';
-import { setExistingNamesFromList, setCurrentPath, getCurrentPath, registerAutoRefresh, requestRefresh, isOperationAllowed, hasPathChanged, setCurrentPathWithRefresh } from '../state.js';
+import {
+  setExistingNamesFromList,
+  setCurrentPath,
+  getCurrentPath,
+  registerAutoRefresh,
+  requestRefresh,
+  isOperationAllowed,
+  hasPathChanged,
+  setCurrentPathWithRefresh
+} from '../state.js';
 import { showError } from './toast.js';
-import { 
+import {
   createFileIconElement,
   createListIconElement
 } from './fileIcons.js';
 import { formatBytes, formatDate } from '../utils.js';
 
-import { 
+import {
   initSelection,
   getSelectedItems,
   clearSelection,
   toggleItemSelection,
   isSelected,
   selectAll,
-  deselectAll
+  deselectAll,
+  setPivot,
+  getPivot,
+  selectRange
 } from './selection.js';
-import { initTouchHandlers, updateTouchHandlerItems } from './touchHandlers.js';
 import { initContextMenu, showContextMenu, hideContextMenu } from './contextMenu.js';
-import { initKeyboardShortcuts, updateKeyboardShortcutItems } from './keyboardShortcuts.js';
-import { 
-  deleteItem, 
-  deleteSelectedItems, 
-  renameSelectedItem, 
+import { updateInputHandlerItems } from './inputHandlers.js';
+import {
+  deleteItem,
+  deleteSelectedItems,
+  renameSelectedItem,
   moveSelectedItems,
   shareSelectedItem,
   updateItemActionsItems
 } from './itemActions.js';
-import { 
-  initFilterSort, 
-  applySortAndFilter, 
+import {
+  initFilterSort,
+  applySortAndFilter,
   resetSearch,
   isSearchActive,
   getSearchMode
@@ -65,7 +76,7 @@ import {
 // DOM References & State
 // ==========================================
 
-/** @type {HTMLElement|null} Container for file items (UL/DIV) */ 
+/** @type {HTMLElement|null} Container for file items (UL/DIV) */
 let fileListEl = null;
 /** @type {HTMLElement|null} Empty state placeholder */
 let emptyStateEl = null;
@@ -95,7 +106,7 @@ let currentSearchMode = 'normal';     // 'normal', 'quick', or 'deep'
 /**
  * Initialize the List UI module.
  * Sets up DOM references, event listeners, and integrates with other modules.
- * 
+ *
  * @param {Object} refs - Map of DOM elements required by this module
  * @param {HTMLElement} [refs.fileListEl] - Main list container
  * @param {HTMLElement} [refs.emptyStateEl] - Empty state container
@@ -107,62 +118,64 @@ let currentSearchMode = 'normal';     // 'normal', 'quick', or 'deep'
  * @param {HTMLElement} [refs.upBtn] - Up button
  */
 export function initList(refs) {
-  fileListEl = refs.fileListEl || null;
-  emptyStateEl = refs.emptyStateEl || null;
+  fileListEl    = refs.fileListEl    || null;
+  emptyStateEl  = refs.emptyStateEl  || null;
   breadcrumbsEl = refs.breadcrumbsEl || null;
-  refreshBtn = refs.refreshBtn || null;
+  refreshBtn    = refs.refreshBtn    || null;
   storageTextEl = refs.storageTextEl || null;
-  storageBarEl = refs.storageBarEl || null;
+  storageBarEl  = refs.storageBarEl  || null;
   listLoadingEl = refs.listLoadingEl || null;
-  upBtn = refs.upBtn || null;
-  
+  upBtn         = refs.upBtn         || null;
+
   // Get additional UI elements directly
   gridViewBtn = document.getElementById('gridViewBtn');
   listViewBtn = document.getElementById('listViewBtn');
-  
+
   // Load saved view preference first (localStorage)
   loadViewPreference();
-  
+
   // Setup view toggle handlers (Grid/List)
   setupViewToggle();
-  
+
   // Initialize Selection Module integration
   initSelection({
     selectionBar: document.getElementById('selectionBar'),
     selectionInfo: document.getElementById('selectionInfo')
   });
-  
-  // Initialize Touch/Mobile support (Long-press)
-  initTouchHandlers(fileListEl, currentItems, handleItemClick, buildContextMenuItems);
-  
-  // Initialize Keyboard Shortcuts
-  initKeyboardShortcuts(currentItems, deleteSelectedItems, renameSelectedItem);
-  
+
+  // NOTE: Touch handlers and keyboard shortcuts are initialized by main.js
+  // via initInputHandlers(). list.js only needs to keep the items reference
+  // in sync via updateInputHandlerItems() after each render.
+
   // Setup Selection Bar buttons (Select All, Delete, etc.)
   setupSelectionButtons();
-  
+
   // Register Auto-Refresh callback
   registerAutoRefresh((requestId, targetPath) => fetchAndRenderListWithTracking(requestId, targetPath));
-  
+
   // Initialize Filter/Sort/Search module
   initFilterSort({
-    searchInput: document.getElementById('searchInput'),
-    clearSearchBtn: document.getElementById('clearSearchBtn'),
+    searchInput:        document.getElementById('searchInput'),
+    clearSearchBtn:     document.getElementById('clearSearchBtn'),
     deepSearchCheckbox: document.getElementById('deepSearchCheckbox'),
-    gridViewBtn: document.getElementById('gridViewBtn'),
-    listViewBtn: document.getElementById('listViewBtn')
+    gridViewBtn:        document.getElementById('gridViewBtn'),
+    listViewBtn:        document.getElementById('listViewBtn')
   });
-  
+
   // Set up callback for filter/sort changes to trigger re-render
   window.filterSortCallback = () => {
     applyFilterSortAndRender();
   };
-  
+
   // Initialize Context Menu module
   initContextMenu();
-  
+
   // Setup Event Delegation for Desktop
   if (fileListEl) {
+    // Prevent browser text-selection when Shift+Click is used for range selection
+    fileListEl.addEventListener('mousedown', (e) => {
+      if (e.shiftKey) e.preventDefault();
+    });
     // Handle right-click context menu
     fileListEl.addEventListener('contextmenu', handleContextMenu);
     // Handle all item clicks (navigation, selection, actions)
@@ -171,27 +184,33 @@ export function initList(refs) {
 }
 
 /**
+ * Expose handleItemClick so main.js can pass it as a callback to initInputHandlers().
+ * buildContextMenuItems is exported directly on its function declaration below.
+ */
+export { handleItemClick };
+
+/**
  * Handle list item interactions via Event Delegation.
- * Using a single listener on the parent container avoids attaching thousands of listeners 
+ * Using a single listener on the parent container avoids attaching thousands of listeners
  * to individual items, significantly improving performance.
- * 
+ *
  * Handles:
  * 1. Delete button clicks (stop propagation, delete item)
  * 2. Breadcrumb links in Deep Search (navigation)
- * 3. Item selection (Ctrl/Cmd+Click)
- * 4. Item navigation/download (Click)
- * 
+ * 3. Shift+Click range selection
+ * 4. Ctrl/Cmd+Click multi-selection
+ * 5. Selection-mode toggle (when items already selected)
+ * 6. Item navigation/download (plain click)
+ *
  * @param {MouseEvent} event - The click event
  */
 function handleListClick(event) {
   // 1. Handle Delete Button Click
-  // Check if click originated from a delete button
   const deleteBtn = event.target.closest('.btn-danger');
   if (deleteBtn) {
     event.stopPropagation();
     const itemEl = deleteBtn.closest('.file-card, .file-list-item, .search-result-item');
     if (itemEl) {
-      // Use ID for lookup
       const itemId = itemEl.dataset.id || itemEl.dataset.name;
       const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
       if (item) {
@@ -202,14 +221,12 @@ function handleListClick(event) {
   }
 
   // 2. Handle Breadcrumb Links (Deep Search Results)
-  // Search results display the full path; clicking a path segment navigates there.
   const breadcrumbLink = event.target.closest('.breadcrumb-link');
   if (breadcrumbLink) {
     event.stopPropagation();
-
     const path = breadcrumbLink.dataset.path;
     if (path !== undefined) {
-      // Clear search mode and navigate to the clicked folder
+      deselectAll();
       resetSearch();
       setCurrentPathWithRefresh(path);
     }
@@ -217,102 +234,101 @@ function handleListClick(event) {
   }
 
   // 3. Handle General Item Interaction
-  // Find the closest item element (Card, List Item, or Search Result)
   const itemEl = event.target.closest('.file-card, .file-list-item, .search-result-item');
   if (!itemEl) return;
 
-  // Ignore clicks inside other buttons that weren't handled above (defensive programming)
+  // Ignore clicks inside other buttons that weren't handled above
   if (event.target.closest('button') && !event.target.closest('.btn-danger')) return;
 
-  // Use ID for lookup (falls back to name for normal items if dataset.id missing)
   const itemId = itemEl.dataset.id || itemEl.dataset.name;
   if (!itemId) return;
 
   const entry = currentItems.find(i => (i.fullPath || i.name) === itemId);
   if (!entry) return;
-  
-  // Multi-select Logic (Ctrl/Cmd + Click)
-  if (event.ctrlKey || event.metaKey) {
+
+  // ── Shift+Click: range selection ──────────────────────────────────────────
+  if (event.shiftKey && !event.ctrlKey && !event.metaKey) {
     event.preventDefault();
-    const selected = isSelected(itemId);
-    toggleItemSelection(itemId, !selected);
-    // Note: Visual update happens via selection module callbacks
+    const pivot = getPivot();
+    if (pivot) {
+      selectRange(currentItems, pivot, itemId);
+    } else {
+      // No pivot yet — treat this click as the start of a range
+      toggleItemSelection(itemId, true);
+      setPivot(itemId);
+    }
     return;
   }
 
-  const selectedItems = getSelectedItems();
+  // ── Ctrl/Cmd+Click: toggle individual item ────────────────────────────────
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault();
+    const alreadySelected = isSelected(itemId);
+    toggleItemSelection(itemId, !alreadySelected);
+    // Update pivot so the next Shift+Click anchors from here
+    setPivot(itemId);
+    return;
+  }
 
-  // Selection Mode Logic (If any items are already selected)
+  // ── Selection Mode: any items already selected ────────────────────────────
+  const selectedItems = getSelectedItems();
   if (selectedItems.size > 0) {
     event.preventDefault();
-    
-    // Toggle selection for this item
     if (isSelected(itemId)) {
       toggleItemSelection(itemId, false);
       itemEl.classList.remove('selected');
     } else {
       toggleItemSelection(itemId, true);
       itemEl.classList.add('selected');
+      setPivot(itemId);
     }
     return;
   }
 
-  // Deep Search Result Logic
+  // ── Deep Search Result ────────────────────────────────────────────────────
   const isDeepSearch = itemEl.classList.contains('search-result-item');
   if (isDeepSearch) {
-    // Only trigger navigation if clicking the Name or Icon
-    // (Breadcrumbs are handled above, Row background does nothing in deep search unless selecting)
     if (event.target.closest('.search-result-name')) {
-        handleDeepSearchResultClick(entry);
+      handleDeepSearchResultClick(entry);
     }
   } else {
-    // Normal Item: Click anywhere triggers navigation/download
+    // ── Normal Item: plain click → navigate / download ────────────────────
+    setPivot(itemId);
     handleItemClick(entry);
   }
 }
 
 /**
  * Handle right-click context menu via Event Delegation.
- * 
+ *
  * Behavior:
- * - If right-clicking an unselected item: Show menu for that item WITHOUT selecting it.
- * - If right-clicking a selected item: Keep selection, show menu for all selected items.
- * 
- * @param {MouseEvent} event 
+ * - Right-clicking an unselected item: show menu for that item WITHOUT selecting it.
+ * - Right-clicking a selected item: keep selection, show menu for all selected items.
+ *
+ * @param {MouseEvent} event
  */
 function handleContextMenu(event) {
-  // Find the target item
   const target = event.target.closest('.file-card, .file-list-item, .search-result-item');
-  
   if (!target) return;
-  
+
   event.preventDefault();
   event.stopPropagation();
-  
-  // Use ID for lookup (falls back to name for normal items if dataset.id missing)
+
   const itemId = target.dataset.id || target.dataset.name;
   if (!itemId) return;
-  
-  // Find the item in currentItems
+
   const item = currentItems.find(i => (i.fullPath || i.name) === itemId);
   if (!item) return;
-  
-  // Check if item is already selected
+
   if (!isSelected(itemId)) {
-    // Right-clicking unselected item: Use context item approach
-    // Add temporary visual highlight
+    // Right-clicking unselected item: temporary highlight
     target.classList.add('context-active');
-    
-    // Build context menu for this specific item
     const menuItems = buildContextMenuItems(item);
-    
-    // Show context menu with cleanup callback
     showContextMenu(event.clientX, event.clientY, menuItems, () => {
-      // Remove temporary highlight when menu closes
       target.classList.remove('context-active');
     });
   } else {
-    // Right-clicking selected item: Use normal selection-based menu
+    // Right-clicking selected item: use selection-based menu
     const menuItems = buildContextMenuItems();
     showContextMenu(event.clientX, event.clientY, menuItems);
   }
@@ -321,34 +337,29 @@ function handleContextMenu(event) {
 /**
  * Construct the context menu configuration array based on current selection.
  * Checks permissions (read-only, etc.) and item types.
- * 
- * @param {Object} contextItem - Optional specific item for context menu (when right-clicking unselected item)
+ *
+ * @param {Object} [contextItem] - Optional specific item (when right-clicking unselected item)
  * @returns {Array<Object>} Array of menu item objects
  */
 export function buildContextMenuItems(contextItem = null) {
   let selectedCount, firstItem, isSingleSelection, isFolder;
-  
+
   if (contextItem) {
-    // Using context item (right-clicked unselected item)
-    selectedCount = 1;
-    firstItem = contextItem;
+    selectedCount    = 1;
+    firstItem        = contextItem;
     isSingleSelection = true;
-    isFolder = contextItem.type === 'dir';
+    isFolder         = contextItem.type === 'dir';
   } else {
-    // Using global selection
     const selectedItems = getSelectedItems();
-    selectedCount = selectedItems.size;
+    selectedCount    = selectedItems.size;
     const selectedIds = Array.from(selectedItems);
-    
-    // Get the first selected item for context (e.g., determining if folder or file)
-    // Match IDs (fullPath or name) against item IDs
-    firstItem = currentItems.find(i => selectedIds.includes(i.fullPath || i.name));
+    firstItem        = currentItems.find(i => selectedIds.includes(i.fullPath || i.name));
     isSingleSelection = selectedCount === 1;
-    isFolder = firstItem && firstItem.type === 'dir';
+    isFolder         = firstItem && firstItem.type === 'dir';
   }
-  
+
   const items = [];
-  
+
   // Action: Open (Single Folder)
   if (isSingleSelection && isFolder) {
     items.push({
@@ -360,7 +371,7 @@ export function buildContextMenuItems(contextItem = null) {
       }
     });
   }
-  
+
   // Action: Download (Single File)
   if (isSingleSelection && !isFolder) {
     items.push({
@@ -372,7 +383,7 @@ export function buildContextMenuItems(contextItem = null) {
       }
     });
   }
-  
+
   // Action: Share (Single Item only)
   if (isSingleSelection) {
     items.push({
@@ -388,12 +399,12 @@ export function buildContextMenuItems(contextItem = null) {
       }
     });
   }
-  
+
   // Separator
   if (items.length > 0) {
     items.push({ separator: true });
   }
-  
+
   // Action: Rename (Single Item, if allowed)
   const renameCheck = isOperationAllowed('rename');
   if (isSingleSelection) {
@@ -404,9 +415,9 @@ export function buildContextMenuItems(contextItem = null) {
       disabled: !renameCheck.allowed
     });
   }
-  
+
   // Action: Move (If allowed, disabled in Deep Search)
-  const moveCheck = isOperationAllowed('move');
+  const moveCheck  = isOperationAllowed('move');
   const searchMode = getSearchMode();
   items.push({
     label: selectedCount > 1 ? `Move ${selectedCount} items` : 'Move',
@@ -414,10 +425,10 @@ export function buildContextMenuItems(contextItem = null) {
     action: contextItem ? () => moveSelectedItems([contextItem]) : moveSelectedItems,
     disabled: !moveCheck.allowed || searchMode === 'deep'
   });
-  
+
   // Separator
   items.push({ separator: true });
-  
+
   // Action: Delete (If allowed)
   const deleteCheck = isOperationAllowed('delete');
   items.push({
@@ -425,53 +436,50 @@ export function buildContextMenuItems(contextItem = null) {
     icon: '🗑️',
     action: contextItem ? () => deleteSelectedItems([contextItem]) : deleteSelectedItems,
     disabled: !deleteCheck.allowed,
-    danger: true // Red styling
+    danger: true
   });
-  
+
   return items;
 }
 
 /**
  * Setup listeners for the Selection Bar buttons (top action bar).
- * 
- * Important: Clicking any selection bar button must hide the Context Menu
- * to prevent invalid states (e.g., operating on deleted items).
  */
 function setupSelectionButtons() {
-  const selectAllBtn = document.getElementById('selectAllBtn');
-  const deselectAllBtn = document.getElementById('deselectAllBtn');
+  const selectAllBtn    = document.getElementById('selectAllBtn');
+  const deselectAllBtn  = document.getElementById('deselectAllBtn');
   const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
   const renameSelectedBtn = document.getElementById('renameSelectedBtn');
-  const moveSelectedBtn = document.getElementById('moveSelectedBtn');
-  
+  const moveSelectedBtn   = document.getElementById('moveSelectedBtn');
+
   if (selectAllBtn) {
     selectAllBtn.addEventListener('click', () => {
       hideContextMenu();
       selectAll(currentItems);
     });
   }
-  
+
   if (deselectAllBtn) {
     deselectAllBtn.addEventListener('click', () => {
       hideContextMenu();
       deselectAll();
     });
   }
-  
+
   if (deleteSelectedBtn) {
     deleteSelectedBtn.addEventListener('click', () => {
       hideContextMenu();
       deleteSelectedItems();
     });
   }
-  
+
   if (renameSelectedBtn) {
     renameSelectedBtn.addEventListener('click', () => {
       hideContextMenu();
       renameSelectedItem();
     });
   }
-  
+
   if (moveSelectedBtn) {
     moveSelectedBtn.addEventListener('click', () => {
       hideContextMenu();
@@ -481,44 +489,41 @@ function setupSelectionButtons() {
 }
 
 /**
- * Update the enabled/disabled state of Selection Bar buttons based on 
+ * Update the enabled/disabled state of Selection Bar buttons based on
  * current server permissions (e.g., Read-Only mode).
  */
 export function updateSelectionButtonStates() {
   const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
   const renameSelectedBtn = document.getElementById('renameSelectedBtn');
-  const moveSelectedBtn = document.getElementById('moveSelectedBtn');
-  
-  // Check delete permission
+  const moveSelectedBtn   = document.getElementById('moveSelectedBtn');
+
   const deleteCheck = isOperationAllowed('delete');
   if (deleteSelectedBtn) {
     deleteSelectedBtn.disabled = !deleteCheck.allowed;
     deleteSelectedBtn.title = deleteCheck.allowed ? 'Delete selected items' : deleteCheck.reason;
     if (!deleteCheck.allowed) {
       deleteSelectedBtn.style.opacity = '0.5';
-      deleteSelectedBtn.style.cursor = 'not-allowed';
+      deleteSelectedBtn.style.cursor  = 'not-allowed';
     }
   }
-  
-  // Check rename permission
+
   const renameCheck = isOperationAllowed('rename');
   if (renameSelectedBtn) {
     renameSelectedBtn.disabled = !renameCheck.allowed;
     renameSelectedBtn.title = renameCheck.allowed ? 'Rename selected item' : renameCheck.reason;
     if (!renameCheck.allowed) {
       renameSelectedBtn.style.opacity = '0.5';
-      renameSelectedBtn.style.cursor = 'not-allowed';
+      renameSelectedBtn.style.cursor  = 'not-allowed';
     }
   }
-  
-  // Check move permission
+
   const moveCheck = isOperationAllowed('move');
   if (moveSelectedBtn) {
     moveSelectedBtn.disabled = !moveCheck.allowed;
     moveSelectedBtn.title = moveCheck.allowed ? 'Move selected items' : moveCheck.reason;
     if (!moveCheck.allowed) {
       moveSelectedBtn.style.opacity = '0.5';
-      moveSelectedBtn.style.cursor = 'not-allowed';
+      moveSelectedBtn.style.cursor  = 'not-allowed';
     }
   }
 }
@@ -537,7 +542,7 @@ function setupViewToggle() {
       }
     }, true);
   }
-  
+
   if (listViewBtn) {
     listViewBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -553,26 +558,23 @@ function setupViewToggle() {
 /**
  * Switch the current view mode and re-render the list.
  * Persists the choice to localStorage.
- * 
+ *
  * @param {string} mode - VIEW_MODE_GRID or VIEW_MODE_LIST
  */
 function switchView(mode) {
   if (mode === currentViewMode) return;
-  
+
   currentViewMode = mode;
-  
-  // Update button visual state
+
   if (gridViewBtn && listViewBtn) {
     gridViewBtn.classList.toggle(ACTIVE_CLASS, mode === VIEW_MODE_GRID);
     listViewBtn.classList.toggle(ACTIVE_CLASS, mode === VIEW_MODE_LIST);
   }
-  
-  // Update container class for CSS styling
+
   if (fileListEl) {
     fileListEl.className = mode === VIEW_MODE_GRID ? 'file-grid' : 'file-list';
   }
-  
-  // Re-render items in new mode
+
   renderItems(currentItems);
   localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
 }
@@ -590,15 +592,15 @@ function loadViewPreference() {
 /**
  * Toggle the main list loading indicator (spinner).
  * Also updates the refresh button state.
- * 
- * @param {boolean} isLoading 
+ *
+ * @param {boolean} isLoading
  */
 export function setListLoading(isLoading) {
   if (refreshBtn) {
     refreshBtn.disabled = !!isLoading;
     const spinner = refreshBtn.querySelector('.refresh-spinner');
-    const label = refreshBtn.querySelector('.refresh-label');
-    
+    const label   = refreshBtn.querySelector('.refresh-label');
+
     if (spinner && label) {
       if (isLoading) {
         spinner.classList.remove('hidden');
@@ -609,7 +611,7 @@ export function setListLoading(isLoading) {
       }
     }
   }
-  
+
   if (listLoadingEl) {
     if (isLoading) {
       listLoadingEl.classList.remove('hidden');
@@ -621,20 +623,15 @@ export function setListLoading(isLoading) {
 
 /**
  * Update the storage usage meter in the UI.
- * Handles styling for different usage levels (green, orange, red).
- * 
+ *
  * @param {Object} storage - Storage info from API
- * @param {number} storage.totalBytes
- * @param {number} storage.freeBytes
- * @param {number} [storage.usedBytes]
- * @param {number} [storage.usedPercent]
  */
 export function updateStorage(storage) {
   if (!storage || !storageTextEl || !storageBarEl) return;
-  
-  const total = storage.totalBytes ?? 0;
-  const free = storage.freeBytes ?? 0;
-  const used = storage.usedBytes ?? Math.max(0, total - free);
+
+  const total   = storage.totalBytes  ?? 0;
+  const free    = storage.freeBytes   ?? 0;
+  const used    = storage.usedBytes   ?? Math.max(0, total - free);
   const percent = storage.usedPercent ?? (total > 0 ? (used / total) * 100 : 0);
 
   storageTextEl.textContent = `Used ${formatBytes(used)} of ${formatBytes(total)}`;
@@ -642,33 +639,34 @@ export function updateStorage(storage) {
   const pct = Math.max(0, Math.min(100, percent));
   storageBarEl.style.width = pct.toFixed(1) + '%';
   storageBarEl.classList.remove('bar-green', 'bar-orange', 'bar-red');
-  
-  if (pct < 60) storageBarEl.classList.add('bar-green');
-  else if (pct < 85) storageBarEl.classList.add('bar-orange');
-  else storageBarEl.classList.add('bar-red');
+
+  if (pct < 60)       storageBarEl.classList.add('bar-green');
+  else if (pct < 85)  storageBarEl.classList.add('bar-orange');
+  else                storageBarEl.classList.add('bar-red');
 }
 
 /**
  * Render the breadcrumb navigation based on current path segments.
- * 
+ *
  * @param {string[]} breadcrumbs - Array of path segments
  */
 export function updateBreadcrumbs(breadcrumbs) {
   if (!breadcrumbsEl) return;
-  
+
   breadcrumbsEl.innerHTML = '';
 
-  // 1. Root/Home Crumb
+  // Root/Home Crumb
   const rootCrumb = document.createElement('span');
   rootCrumb.className = 'crumb';
   rootCrumb.textContent = 'Home';
   rootCrumb.addEventListener('click', () => {
+    deselectAll();
     resetSearch();
     setCurrentPathWithRefresh('');
   });
   breadcrumbsEl.appendChild(rootCrumb);
 
-  // 2. Path Segments
+  // Path Segments
   if (Array.isArray(breadcrumbs) && breadcrumbs.length > 0) {
     breadcrumbs.forEach((seg, index) => {
       const sep = document.createElement('span');
@@ -679,10 +677,10 @@ export function updateBreadcrumbs(breadcrumbs) {
       const crumb = document.createElement('span');
       crumb.className = 'crumb';
       crumb.textContent = seg;
-      
+
       const targetPath = breadcrumbs.slice(0, index + 1).join('/');
-      
       crumb.addEventListener('click', () => {
+        deselectAll();
         resetSearch();
         setCurrentPathWithRefresh(targetPath);
       });
@@ -698,23 +696,19 @@ export function updateBreadcrumbs(breadcrumbs) {
 
 /**
  * Apply current filter and sort criteria to raw items, then render the result.
- * Also handles Search Mode transitions and UI updates.
  */
 function applyFilterSortAndRender() {
   const result = applySortAndFilter(rawItems);
   const previousSearchMode = currentSearchMode;
   currentSearchMode = result.mode;
-  
-  // Clear selection when search mode changes (to avoid confusion)
+
   if (previousSearchMode !== currentSearchMode) {
     clearSelection();
   }
-  
-  // Update UI controls visibility based on search state
+
   updateUploadControlsState();
   updateMoveButtonState();
-  
-  // Render appropriate view based on mode
+
   if (result.mode === 'deep') {
     renderDeepSearchResults(result.items, result.query);
   } else {
@@ -723,61 +717,46 @@ function applyFilterSortAndRender() {
 }
 
 /**
- * Toggle visibility of Upload/New Folder buttons.
- * (Hidden during search to prevent confusion about where files land)
+ * Toggle visibility of Upload/New Folder buttons during search.
  */
 function updateUploadControlsState() {
-  const fabUpload = document.getElementById('fabUpload');
+  const fabUpload   = document.getElementById('fabUpload');
   const newFolderBtn = document.getElementById('newFolderBtn');
   const searchActive = isSearchActive();
-  
+
   if (fabUpload) {
-    if (searchActive) {
-      fabUpload.style.display = 'none';
-    } else {
-      fabUpload.style.display = '';
-    }
+    fabUpload.style.display = searchActive ? 'none' : '';
   }
-  
   if (newFolderBtn) {
-    if (searchActive) {
-      newFolderBtn.style.display = 'none';
-    } else {
-      newFolderBtn.style.display = '';
-    }
+    newFolderBtn.style.display = searchActive ? 'none' : '';
   }
 }
 
 /**
  * Disable the "Move" button during Deep Search.
- * (Moving items from search results across different folders is complex/risky)
  */
 function updateMoveButtonState() {
   const moveSelectedBtn = document.getElementById('moveSelectedBtn');
-  
   if (!moveSelectedBtn) return;
-  
+
   const searchMode = getSearchMode();
-  const moveCheck = isOperationAllowed('move');
-  
+  const moveCheck  = isOperationAllowed('move');
+
   if (searchMode === 'deep') {
-    // Disable move in deep search mode
     moveSelectedBtn.disabled = true;
-    moveSelectedBtn.title = 'Move not available in deep search';
+    moveSelectedBtn.title    = 'Move not available in deep search';
     moveSelectedBtn.style.opacity = '0.5';
-    moveSelectedBtn.style.cursor = 'not-allowed';
+    moveSelectedBtn.style.cursor  = 'not-allowed';
   } else if (!moveCheck.allowed) {
-    // Disabled by server configuration
     moveSelectedBtn.disabled = true;
-    moveSelectedBtn.title = moveCheck.reason;
+    moveSelectedBtn.title    = moveCheck.reason;
     moveSelectedBtn.style.opacity = '0.5';
-    moveSelectedBtn.style.cursor = 'not-allowed';
+    moveSelectedBtn.style.cursor  = 'not-allowed';
   } else {
-    // Enabled
     moveSelectedBtn.disabled = false;
-    moveSelectedBtn.title = 'Move selected items';
+    moveSelectedBtn.title    = 'Move selected items';
     moveSelectedBtn.style.opacity = '';
-    moveSelectedBtn.style.cursor = '';
+    moveSelectedBtn.style.cursor  = '';
   }
 }
 
@@ -792,25 +771,19 @@ export function renderItems(items) {
 
 /**
  * Render items for standard view (Grid/List) or Quick Search.
- * 
- * @param {Array} items - Processed items
- * @param {string} mode - 'normal' or 'quick'
- * @param {string} query - Search query (if applicable)
  */
 function renderNormalItems(items, mode, query) {
   if (!fileListEl || !emptyStateEl) return;
-  
+
   currentItems = items || [];
   fileListEl.innerHTML = '';
-  
+
   setExistingNamesFromList(currentItems);
-  
-  // Sync state with other modules
-  updateTouchHandlerItems(currentItems);
-  updateKeyboardShortcutItems(currentItems);
+
+  // Sync items reference in inputHandlers
+  updateInputHandlerItems(currentItems);
   updateItemActionsItems(currentItems);
 
-  // Handle Empty State
   if (!currentItems || currentItems.length === 0) {
     if (mode === 'quick' && query) {
       showEmptySearchState(query);
@@ -819,7 +792,7 @@ function renderNormalItems(items, mode, query) {
     }
     return;
   }
-  
+
   emptyStateEl.style.display = 'none';
 
   // Render Search Header for Quick Search
@@ -840,8 +813,7 @@ function renderNormalItems(items, mode, query) {
       </button>
     `;
     fileListEl.appendChild(header);
-    
-    // Add click handler for exit search button
+
     const exitBtn = header.querySelector('#exitSearchBtn');
     if (exitBtn) {
       exitBtn.addEventListener('click', () => {
@@ -853,7 +825,6 @@ function renderNormalItems(items, mode, query) {
     }
   }
 
-  // Render items based on view mode
   if (currentViewMode === VIEW_MODE_GRID) {
     renderGridView(currentItems);
   } else {
@@ -863,29 +834,23 @@ function renderNormalItems(items, mode, query) {
 
 /**
  * Render items for Deep Search (recursive search results).
- * Displays full path information for each result.
- * 
- * @param {Array} items - Processed items
- * @param {string} query - Search query
  */
 function renderDeepSearchResults(items, query) {
   if (!fileListEl || !emptyStateEl) return;
-  
+
   currentItems = items || [];
   fileListEl.innerHTML = '';
   emptyStateEl.style.display = 'none';
-  
-  // Sync state
-  updateTouchHandlerItems(currentItems);
-  updateKeyboardShortcutItems(currentItems);
+
+  // Sync items reference in inputHandlers
+  updateInputHandlerItems(currentItems);
   updateItemActionsItems(currentItems);
-  
+
   if (!currentItems || currentItems.length === 0) {
     showEmptySearchState(query);
     return;
   }
-  
-  // Render Search Header
+
   const header = document.createElement('div');
   header.className = 'search-results-header';
   header.innerHTML = `
@@ -902,7 +867,7 @@ function renderDeepSearchResults(items, query) {
     </button>
   `;
   fileListEl.appendChild(header);
-  
+
   const exitBtn = header.querySelector('#exitSearchBtn');
   if (exitBtn) {
     exitBtn.addEventListener('click', () => {
@@ -912,8 +877,7 @@ function renderDeepSearchResults(items, query) {
       }
     });
   }
-  
-  // Render result items (Deep search uses a specific list layout)
+
   currentItems.forEach(item => {
     const resultItem = createDeepSearchResultItem(item);
     fileListEl.appendChild(resultItem);
@@ -922,11 +886,10 @@ function renderDeepSearchResults(items, query) {
 
 /**
  * Render empty state for search queries.
- * @param {string} query 
  */
 function showEmptySearchState(query) {
   if (!emptyStateEl) return;
-  
+
   emptyStateEl.innerHTML = `
     <div class="empty-state-icon">🔍</div>
     <div class="empty-state-title">No items found</div>
@@ -938,7 +901,7 @@ function showEmptySearchState(query) {
     </button>
   `;
   emptyStateEl.style.display = 'flex';
-  
+
   const clearBtn = emptyStateEl.querySelector('#emptyStateClearBtn');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
@@ -952,68 +915,58 @@ function showEmptySearchState(query) {
 
 /**
  * Create a specialized DOM element for Deep Search results.
- * Includes breadcrumb path visualization.
- * 
- * @param {Object} item 
- * @returns {HTMLLIElement}
  */
 function createDeepSearchResultItem(item) {
   const li = document.createElement('li');
   li.className = 'search-result-item';
-  
-  // Add data attributes for selection/interaction support (Event Delegation)
+
   const itemId = item.fullPath || item.name;
   li.dataset.name = item.name;
-  li.dataset.id = itemId;
+  li.dataset.id   = itemId;
   li.dataset.type = item.type;
-  
+
   if (isSelected(itemId)) {
     li.classList.add('selected');
   }
-  
+
   const iconEl = createListIconElement(item.name, item.type);
-  
+
   const infoContainer = document.createElement('div');
   infoContainer.className = 'search-result-info';
-  
+
   const nameEl = document.createElement('div');
   nameEl.className = 'search-result-name';
   nameEl.textContent = item.name;
   nameEl.style.cursor = 'pointer';
-  
+
   const pathEl = document.createElement('div');
   pathEl.className = 'search-result-path';
   pathEl.innerHTML = createClickableBreadcrumb(item);
-  
+
   const metaEl = document.createElement('div');
   metaEl.className = 'search-result-meta';
   metaEl.textContent = createMetadataText(item);
-  
+
   infoContainer.appendChild(nameEl);
   infoContainer.appendChild(pathEl);
   infoContainer.appendChild(metaEl);
-  
+
   li.appendChild(iconEl);
   li.appendChild(infoContainer);
-  
+
   return li;
 }
 
 /**
  * Generate HTML for clickable breadcrumbs in search results.
- * Used to navigate to parent directories of search matches.
- * 
- * @param {Object} item 
- * @returns {string} HTML string
  */
 function createClickableBreadcrumb(item) {
   const parts = ['Home'];
   if (item.breadcrumbs && item.breadcrumbs.length > 0) {
     parts.push(...item.breadcrumbs);
   }
-  
+
   return parts.map((part, index) => {
-    // Reconstruct path for each segment
     const path = index === 0 ? '' : parts.slice(1, index + 1).join('/');
     return `<span class="breadcrumb-link" data-path="${path}">${part}</span>`;
   }).join(' › ');
@@ -1021,18 +974,14 @@ function createClickableBreadcrumb(item) {
 
 /**
  * Handle navigation when a Deep Search result name is clicked.
- * 
- * @param {Object} item 
  */
 function handleDeepSearchResultClick(item) {
   if (item.type === 'dir') {
-    // Open folder: opens in new tab to avoid losing search context unintentionally
     const url = `${window.location.origin}${window.location.pathname}#path=${encodeURIComponent(item.fullPath)}`;
     window.open(url, '_blank');
   } else {
-    // Open/Download file
-    const downloadUrl = DOWNLOAD_BASE + 
-      (item.displayPath ? `?path=${encodeURIComponent(item.displayPath)}&file=` : '?file=') + 
+    const downloadUrl = DOWNLOAD_BASE +
+      (item.displayPath ? `?path=${encodeURIComponent(item.displayPath)}&file=` : '?file=') +
       encodeURIComponent(item.name);
     window.open(downloadUrl, '_blank');
   }
@@ -1043,20 +992,20 @@ function handleDeepSearchResultClick(item) {
  */
 const VIEW_CONFIG = {
   grid: {
-    itemClass: 'file-card',
-    nameClass: 'file-name',
-    metaClass: 'file-meta',
+    itemClass:   'file-card',
+    nameClass:   'file-name',
+    metaClass:   'file-meta',
     actionsClass: 'file-actions',
-    iconFn: createFileIconElement,
-    wrapInfo: false
+    iconFn:      createFileIconElement,
+    wrapInfo:    false
   },
   list: {
-    itemClass: 'file-list-item',
-    nameClass: 'file-list-name',
-    metaClass: 'file-list-meta',
+    itemClass:   'file-list-item',
+    nameClass:   'file-list-name',
+    metaClass:   'file-list-meta',
     actionsClass: 'file-list-actions',
-    iconFn: createListIconElement,
-    wrapInfo: true
+    iconFn:      createListIconElement,
+    wrapInfo:    true
   }
 };
 
@@ -1066,10 +1015,10 @@ const VIEW_CONFIG = {
 function createMetadataText(entry) {
   if (entry.type === 'dir') {
     const countText = entry.count != null ? `${entry.count} items` : '';
-    const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
+    const timeText  = entry.mtime != null ? formatDate(entry.mtime) : '';
     return [countText, timeText].filter(Boolean).join(' • ');
   } else {
-    const sizeText = entry.size != null ? formatBytes(entry.size) : '';
+    const sizeText = entry.size  != null ? formatBytes(entry.size) : '';
     const timeText = entry.mtime != null ? formatDate(entry.mtime) : '';
     return [sizeText, timeText].filter(Boolean).join(' • ');
   }
@@ -1077,87 +1026,73 @@ function createMetadataText(entry) {
 
 /**
  * Create a delete button element for an item.
- * Checks 'delete' permissions.
- * 
- * @param {Object} entry 
- * @returns {HTMLButtonElement}
  */
 function createDeleteButton(entry) {
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'btn btn-sm btn-danger';
   deleteBtn.innerHTML = '🗑️';
-  
-  // Check permission
+
   const check = isOperationAllowed('delete');
   if (!check.allowed) {
     deleteBtn.disabled = true;
-    deleteBtn.title = check.reason;
+    deleteBtn.title    = check.reason;
     deleteBtn.style.opacity = '0.5';
-    deleteBtn.style.cursor = 'not-allowed';
+    deleteBtn.style.cursor  = 'not-allowed';
   } else {
     deleteBtn.title = 'Delete';
-    // Event listener removed - handled by Event Delegation in handleListClick
   }
-  
+
   return deleteBtn;
 }
 
 /**
  * Render a single standard item (Grid or List view).
- * 
- * @param {Object} entry - File object
- * @param {'grid'|'list'} viewMode 
- * @returns {HTMLLIElement}
  */
 function renderItem(entry, viewMode) {
   const config = VIEW_CONFIG[viewMode];
-  
+
   const li = document.createElement('li');
   li.className = config.itemClass;
-  // Attributes for Event Delegation
+
   const itemId = entry.name;
   li.dataset.name = entry.name;
-  li.dataset.id = itemId;
+  li.dataset.id   = itemId;
   li.dataset.type = entry.type;
-  
+
   const iconEl = config.iconFn(entry.name, entry.type);
-  
+
   const nameEl = document.createElement('div');
   nameEl.className = config.nameClass;
   nameEl.textContent = entry.name;
-  
+
   const metaEl = document.createElement('div');
   metaEl.className = config.metaClass;
   metaEl.textContent = createMetadataText(entry);
-  
+
   const actionsEl = document.createElement('div');
   actionsEl.className = config.actionsClass;
   actionsEl.appendChild(createDeleteButton(entry));
-  
-  // Assemble DOM
+
   if (config.wrapInfo) {
-    // List view: Text info wrapped in container
     const infoEl = document.createElement('div');
     infoEl.className = 'file-info';
     infoEl.appendChild(nameEl);
     infoEl.appendChild(metaEl);
-    
+
     li.appendChild(iconEl);
     li.appendChild(infoEl);
     li.appendChild(actionsEl);
   } else {
-    // Grid view: Stacked
     li.appendChild(iconEl);
     li.appendChild(nameEl);
     li.appendChild(metaEl);
     li.appendChild(actionsEl);
   }
-  
-  // Visual Selection State
+
   if (isSelected(entry.name)) {
     li.classList.add('selected');
   }
-  
+
   return li;
 }
 
@@ -1183,49 +1118,47 @@ function renderListView(items) {
 
 /**
  * Handle standard item click action (Navigate or Download/Open).
- * 
- * @param {Object} entry 
+ * Also pushes a history entry so the browser back button navigates up.
+ *
+ * @param {Object} entry
  */
 function handleItemClick(entry) {
-  // Always clear selection when performing a primary action (Navigation/Download)
+  // Always clear selection when performing a primary action
   deselectAll();
 
   if (entry.type === 'dir') {
-    setCurrentPathWithRefresh(joinPath(getCurrentPath(), entry.name));
+    const newPath = joinPath(getCurrentPath(), entry.name);
+    // Push history state so browser back / swipe-back navigates up.
+    // Use the clean base URL — path is stored in state only, not in the URL bar.
+    history.pushState({ path: newPath }, '', window.location.pathname);
+    setCurrentPathWithRefresh(newPath);
   } else {
-    // Use displayPath from deep search results if available, otherwise fall back to current path
     const path = typeof entry.displayPath !== 'undefined' ? entry.displayPath : getCurrentPath();
-    const downloadUrl = DOWNLOAD_BASE + (path ? (`?path=${encodeURIComponent(path)}&file=`) : ('?file=')) + encodeURIComponent(entry.name);
-    // Backend handles Content-Disposition (inline vs attachment)
+    const downloadUrl = DOWNLOAD_BASE +
+      (path ? `?path=${encodeURIComponent(path)}&file=` : '?file=') +
+      encodeURIComponent(entry.name);
     window.open(downloadUrl, '_blank');
   }
 }
 
 /**
  * Auto-refresh callback wrapper.
- * Sets loading state to true during refresh.
- * 
- * @param {number} requestId - Unique ID for race condition handling
- * @param {string|null} targetPath - Optional target path to fetch (for navigation)
  */
 async function fetchAndRenderListWithTracking(requestId, targetPath) {
   setListLoading(true);
   try {
-    // Use targetPath if provided (navigation), otherwise use current path (refresh)
     const pathToFetch = (typeof targetPath === 'string') ? targetPath : getCurrentPath();
     const resp = await apiList(pathToFetch);
     if (!resp.success) throw new Error(resp.message || 'Failed to load items');
-    
-    // Only update state after successful response
+
     setCurrentPath(resp.path || pathToFetch);
     updateBreadcrumbs(resp.breadcrumbs || []);
     updateStorage(resp.storage);
-    
-    // Reset search only if path changed (navigation), not on auto-refresh
+
     if (hasPathChanged()) {
       resetSearch();
     }
-    
+
     renderItems(resp.items || []);
   } catch (err) {
     showError(`Error loading items: ${err.message || err}`);
@@ -1236,22 +1169,21 @@ async function fetchAndRenderListWithTracking(requestId, targetPath) {
 
 /**
  * Public API: Triggers a fresh fetch and render of the current path.
- * Used by external modules or manual refresh button.
  */
 export async function fetchAndRenderList() {
   setListLoading(true);
   try {
     const resp = await apiList(getCurrentPath());
     if (!resp.success) throw new Error(resp.message || 'Failed to load items');
-    
+
     setCurrentPath(resp.path || '');
     updateBreadcrumbs(resp.breadcrumbs || []);
     updateStorage(resp.storage);
-    
+
     if (hasPathChanged()) {
       resetSearch();
     }
-    
+
     renderItems(resp.items || []);
   } catch (err) {
     showError(`Error loading items: ${err.message || err}`);

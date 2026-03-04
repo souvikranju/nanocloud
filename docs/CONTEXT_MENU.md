@@ -22,11 +22,12 @@ The context menu system consists of three main components:
   - `buildContextMenuItems()`: Generates menu configuration array
   - `handleContextMenu(event)`: Desktop right-click handler
 
-### 3. Touch Handlers Module (`public/assets/js/ui/touchHandlers.js`)
-- **Purpose**: Mobile/touch interaction logic
+### 3. Input Handlers Module (`public/assets/js/ui/inputHandlers.js`)
+- **Purpose**: Consolidated keyboard, mouse, and touch/gesture handling (replaces the former `keyboardShortcuts.js` and `touchHandlers.js`)
 - **Key Functions**:
-  - `handleTouchStart(event)`: Implements 2-state long-press logic
-  - `initTouchHandlers()`: Initializes listeners with Smart Suppression
+  - `initInputHandlers(config)`: Initializes all keyboard, mouse-button, and touch listeners
+  - `handleTouchStart(event)`: Implements 2-state long-press logic (internal)
+  - `updateInputHandlerItems(items)`: Keeps the item reference current after each render
 
 ## Hybrid Device Support (Smart Suppression)
 
