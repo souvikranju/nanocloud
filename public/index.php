@@ -302,12 +302,24 @@
                             <span class="shortcut-desc">Select all items</span>
                         </div>
                         <div class="shortcut-item">
+                            <span class="shortcut-key">Ctrl/Cmd + Click</span>
+                            <span class="shortcut-desc">Toggle item selection</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Shift + Click</span>
+                            <span class="shortcut-desc">Range-select</span>
+                        </div>
+                        <div class="shortcut-item">
                             <span class="shortcut-key">F5 / Ctrl+R</span>
                             <span class="shortcut-desc">Refresh files</span>
                         </div>
                         <div class="shortcut-item">
-                            <span class="shortcut-key">Delete / Backspace</span>
+                            <span class="shortcut-key">Delete</span>
                             <span class="shortcut-desc">Delete selected items</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Backspace/Back</span>
+                            <span class="shortcut-desc">Navigate up one folder (clears selection)</span>
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-key">F2</span>
@@ -315,7 +327,11 @@
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-key">Escape</span>
-                            <span class="shortcut-desc">Deselect all items</span>
+                            <span class="shortcut-desc">Deselect all / close</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">F1</span>
+                            <span class="shortcut-desc">Open this guide</span>
                         </div>
                     </div>
                 </div>
@@ -330,11 +346,15 @@
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-key">Press & Hold (500ms)</span>
-                            <span class="shortcut-desc">Select item (haptic feedback)</span>
+                            <span class="shortcut-desc">Enter selection mode / show context menu</span>
                         </div>
                         <div class="shortcut-item">
-                            <span class="shortcut-key">Tap after selection</span>
-                            <span class="shortcut-desc">Add more items to selection</span>
+                            <span class="shortcut-key">Tap while items selected</span>
+                            <span class="shortcut-desc">Toggle item selection</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-key">Swipe Back / Back Button</span>
+                            <span class="shortcut-desc">Navigate up one folder</span>
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-key">Drag & Drop</span>

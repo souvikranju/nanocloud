@@ -6,6 +6,10 @@ let selectedItems = new Set();
 let selectionBar = null;
 let selectionInfo = null;
 
+// Pivot item for Shift+Click range selection.
+// The pivot is the "anchor" — the last item clicked without Shift held.
+let pivotItemId = null;
+
 /**
  * Initialize selection system
  * @param {Object} refs - DOM element references
@@ -24,10 +28,11 @@ export function getSelectedItems() {
 }
 
 /**
- * Clear all selections
+ * Clear all selections and reset pivot/focus
  */
 export function clearSelection() {
   selectedItems.clear();
+  pivotItemId = null;
   updateSelectionUI();
 }
 
@@ -58,10 +63,11 @@ export function selectAll(items) {
 }
 
 /**
- * Deselect all items
+ * Deselect all items and reset pivot/focus
  */
 export function deselectAll() {
   selectedItems.clear();
+  pivotItemId = null;
   updateSelectionUI();
 }
 
@@ -74,6 +80,62 @@ export function isSelected(itemId) {
   return selectedItems.has(itemId);
 }
 
+// =====================================
+// PIVOT & RANGE SELECTION
+// =====================================
+
+/**
+ * Set the pivot (anchor) item for range selection.
+ * Called on every plain click or Ctrl+Click.
+ * @param {string} itemId
+ */
+export function setPivot(itemId) {
+  pivotItemId = itemId;
+}
+
+/**
+ * Get the current pivot item ID.
+ * @returns {string|null}
+ */
+export function getPivot() {
+  return pivotItemId;
+}
+
+/**
+ * Select all items between two item IDs (inclusive), replacing current selection.
+ * The order is determined by the items array (rendered order).
+ *
+ * @param {Array} items - The full ordered items array
+ * @param {string} fromId - Start of range (pivot)
+ * @param {string} toId - End of range (clicked/focused item)
+ */
+export function selectRange(items, fromId, toId) {
+  const fromIndex = items.findIndex(i => (i.fullPath || i.name) === fromId);
+  const toIndex   = items.findIndex(i => (i.fullPath || i.name) === toId);
+
+  if (fromIndex === -1 || toIndex === -1) {
+    // Fallback: just select the target item
+    selectedItems.clear();
+    selectedItems.add(toId);
+    updateSelectionUI();
+    return;
+  }
+
+  const start = Math.min(fromIndex, toIndex);
+  const end   = Math.max(fromIndex, toIndex);
+
+  selectedItems.clear();
+  for (let i = start; i <= end; i++) {
+    selectedItems.add(items[i].fullPath || items[i].name);
+  }
+
+  updateSelectionUI();
+}
+
+// =====================================
+// UI UPDATE
+// =====================================
+
 /**
  * Update selection bar visibility/content and visual selection state of items
  */
@@ -81,7 +143,7 @@ function updateSelectionUI() {
   // Update selection bar
   if (selectionBar && selectionInfo) {
     const count = selectedItems.size;
-    
+
     if (count > 0) {
       selectionBar.classList.add('visible');
       selectionInfo.textContent = `${count} item${count === 1 ? '' : 's'} selected`;
@@ -89,10 +151,10 @@ function updateSelectionUI() {
       selectionBar.classList.remove('visible');
     }
   }
-  
+
   // Update visual selection state of all items in the DOM based on dataset.id (or fallback to name)
   const allItems = document.querySelectorAll('.file-card, .file-list-item, .search-result-item');
-  
+
   allItems.forEach(item => {
     const itemId = item.dataset.id || item.dataset.name;
     if (itemId) {

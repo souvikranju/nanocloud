@@ -3,23 +3,24 @@
 // Wires DOM events, initializes UI modules, fetches server info and listings,
 // and delegates uploads to the uploader orchestrator.
 
-import { 
-  DRAG_HOVER_CLASS, 
-  MODAL_HIDDEN_CLASS, 
+import {
+  DRAG_HOVER_CLASS,
+  MODAL_HIDDEN_CLASS,
   MODAL_ARIA_HIDDEN,
-  KEYBOARD_SHORTCUTS 
 } from './constants.js';
 import { getCurrentPath, hasExistingName, setServerConfig, getServerConfig, isOperationAllowed } from './state.js';
+import { deselectAll } from './ui/selection.js';
 import { updateSelectionButtonStates } from './ui/list.js';
 import { parentPath, sanitizeSegment, formatBytes, extractFilesFromDataTransfer, extractFilesFromFileList } from './utils.js';
 import { initProgress, showFab } from './ui/progress.js';
-import { initList, fetchAndRenderList } from './ui/list.js';
+import { initList, fetchAndRenderList, handleItemClick, buildContextMenuItems } from './ui/list.js';
 import { initToast, showSuccess, showError, showInfo } from './ui/toast.js';
 import { requestRefresh as stateRequestRefresh, setCurrentPathWithRefresh } from './state.js';
 import { info as apiInfo, createDir as apiCreateDir } from './nanocloudClient.js';
 import { uploadFiles } from './uploader.js';
 import { updateChecker } from './updateChecker.js';
 import { isSearchActive } from './ui/filterSort.js';
+import { initInputHandlers } from './ui/inputHandlers.js';
 
 
 // =====================================
@@ -89,12 +90,11 @@ function initializeModules() {
   initToast({
     toastContainer: DOM.toastContainer,
   });
-  
+
   // Expose toast functions globally for filterSort module
   window.showError = showError;
   window.showInfo = showInfo;
   window.showSuccess = showSuccess;
-
 
   // Initialize progress tracking
   initProgress({
@@ -126,14 +126,14 @@ function showModal() {
     showError('Cannot upload files while search is active. Clear search first.');
     return;
   }
-  
+
   // Check if uploads are allowed
   const check = isOperationAllowed('upload');
   if (!check.allowed) {
     showError(check.reason);
     return;
   }
-  
+
   DOM.uploadModal.classList.remove(MODAL_HIDDEN_CLASS);
   DOM.uploadModal.setAttribute(MODAL_ARIA_HIDDEN, 'false');
 }
@@ -170,7 +170,7 @@ function setupModalEventHandlers() {
   hiddenFileInput.webkitdirectory = true;
   hiddenFileInput.style.display = 'none';
   document.body.appendChild(hiddenFileInput);
-  
+
   // Handle file selection
   hiddenFileInput.addEventListener('change', () => {
     const files = hiddenFileInput.files;
@@ -192,10 +192,10 @@ function setupModalEventHandlers() {
 
   // Info modal handlers
   setupInfoModalHandlers();
-  
+
   // Search modal handlers
   setupSearchModalHandlers();
-  
+
   // View Options modal handlers
   setupViewOptionsModalHandlers();
 }
@@ -335,17 +335,14 @@ function setupDragDropHandlers() {
 function setupDropArea(element) {
   if (!element) return;
 
-  // Handle drag enter/over
   ['dragenter', 'dragover'].forEach(eventName => {
     element.addEventListener(eventName, handleDragEnterOver, false);
   });
 
-  // Handle drag leave/drop
   ['dragleave', 'drop'].forEach(eventName => {
     element.addEventListener(eventName, handleDragLeaveDrop, false);
   });
 
-  // Handle file drop
   element.addEventListener('drop', handleFileDrop, false);
 }
 
@@ -364,8 +361,7 @@ function handleDragLeaveDrop(event) {
 async function handleFileDrop(event) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return;
-  
-  // Try to use DataTransferItem API for folder support
+
   if (dataTransfer.items && dataTransfer.items.length > 0) {
     hideModal();
     try {
@@ -373,11 +369,8 @@ async function handleFileDrop(event) {
       if (fileItems.length > 0) {
         uploadFiles(fileItems);
       }
-      // Note: Empty folders are not exposed by browser File API
-      // No notification needed as browser won't even trigger drop for empty folders
     } catch (err) {
       console.error('Error extracting files from drop:', err);
-      // Fallback to simple file list
       const files = dataTransfer.files;
       if (files && files.length > 0) {
         const fileItems = extractFilesFromFileList(files);
@@ -385,7 +378,6 @@ async function handleFileDrop(event) {
       }
     }
   } else if (dataTransfer.files && dataTransfer.files.length > 0) {
-    // Fallback for browsers without DataTransferItem support
     hideModal();
     const fileItems = extractFilesFromFileList(dataTransfer.files);
     uploadFiles(fileItems);
@@ -409,14 +401,24 @@ function setupNavigationEventHandlers() {
   // Refresh button
   if (DOM.refreshBtn) {
     DOM.refreshBtn.addEventListener('click', () => {
-      stateRequestRefresh(true); // Force refresh with debouncing
+      stateRequestRefresh(true);
     });
   }
 }
 
+/**
+ * Navigate one directory up.
+ * Also pushes a history state so the browser back button stays consistent.
+ */
 function handleNavigationUp() {
   if (getCurrentPath() === '') return;
-  setCurrentPathWithRefresh(parentPath(getCurrentPath())); // Use optimized state change with auto-refresh
+  // Clear any active selection before navigating — consistent with breadcrumb behaviour
+  deselectAll();
+  const newPath = parentPath(getCurrentPath());
+  // Push history state so browser back / swipe-back stays consistent.
+  // Use the clean base URL — path is stored in state only, not in the URL bar.
+  history.pushState({ path: newPath }, '', window.location.pathname);
+  setCurrentPathWithRefresh(newPath);
 }
 
 async function handleCreateFolder() {
@@ -425,7 +427,7 @@ async function handleCreateFolder() {
     showError('Cannot create folders while search is active. Clear search first.');
     return;
   }
-  
+
   // Check if uploads are allowed (creating folders is an upload operation)
   const check = isOperationAllowed('upload');
   if (!check.allowed) {
@@ -456,8 +458,7 @@ async function handleCreateFolder() {
     const resp = await apiCreateDir(getCurrentPath(), trimmed);
     if (!resp.success) throw new Error(resp.message || 'Create folder failed');
     showSuccess(`Created folder "${trimmed}".`);
-    // Don't call fetchAndRenderList directly - let state management handle it
-    stateRequestRefresh(true); // Force refresh after successful operation
+    stateRequestRefresh(true);
   } catch (err) {
     showError(`Error creating folder: ${err.message || err}`);
   }
@@ -475,6 +476,43 @@ async function initializeApp() {
     setupModalEventHandlers();
     setupDragDropHandlers();
     setupNavigationEventHandlers();
+
+    // Initialize consolidated input handlers (keyboard + touch + mouse buttons)
+    // Must be called AFTER initList() so handleItemClick / buildContextMenuItems are ready
+    initInputHandlers({
+      // Global / navigation callbacks
+      onUpload:      showModal,
+      onRefresh:     () => stateRequestRefresh(true),
+      onHelp:        showInfoModal,
+      onCloseModals: () => {
+        hideModal();
+        hideInfoModal();
+        hideSearchModal();
+        hideViewOptionsModal();
+      },
+      onNavigateUp:  handleNavigationUp,
+
+      // Item action callbacks (from itemActions.js, wired through list.js)
+      onDelete: () => {
+        // Dynamically import to avoid circular dependency at module load time
+        import('./ui/itemActions.js').then(m => m.deleteSelectedItems());
+      },
+      onRename: () => {
+        import('./ui/itemActions.js').then(m => m.renameSelectedItem());
+      },
+      onMove: () => {
+        import('./ui/itemActions.js').then(m => m.moveSelectedItems());
+      },
+
+      // Touch / click callbacks (from list.js)
+      onItemClick:  handleItemClick,
+      onMenuBuild:  buildContextMenuItems,
+
+      // File list element for touch event binding
+      fileListEl: DOM.fileList,
+    });
+
+    // Setup global drag-and-drop and browser history handlers
     setupGlobalEventHandlers();
 
     // Fetch server information
@@ -499,31 +537,23 @@ async function initializeApp() {
 let updateCheckerInitialized = false;
 
 async function initializeUpdateChecker() {
-  // Only initialize once
-  if (updateCheckerInitialized) {
-    return;
-  }
-  
+  if (updateCheckerInitialized) return;
   updateCheckerInitialized = true;
-  
+
   try {
-    // Initialize update checker
     await updateChecker.init();
-    
-    // Update version display in info modal
+
     const versionDisplay = document.getElementById('versionDisplay');
     if (versionDisplay && updateChecker.currentVersion) {
       versionDisplay.textContent = updateChecker.currentVersion;
     }
-    
-    // Render update UI in info modal
+
     const updateContainer = document.getElementById('updateSectionContainer');
     if (updateContainer) {
       updateChecker.renderUpdateUI(updateContainer);
     }
   } catch (error) {
     console.warn('Failed to initialize update checker:', error);
-    // Don't fail the app if update checker fails
     const versionDisplay = document.getElementById('versionDisplay');
     if (versionDisplay) {
       versionDisplay.textContent = 'v2.0';
@@ -535,20 +565,17 @@ async function fetchServerInfo() {
   try {
     const data = await apiInfo();
     if (data && data.success) {
-      // Store all server configuration in one place
       setServerConfig({
-        readOnly: data.readOnly ?? false,
+        readOnly:      data.readOnly      ?? false,
         uploadEnabled: data.uploadEnabled ?? true,
         deleteEnabled: data.deleteEnabled ?? true,
         renameEnabled: data.renameEnabled ?? true,
-        moveEnabled: data.moveEnabled ?? true,
+        moveEnabled:   data.moveEnabled   ?? true,
       });
-      
-      // Update UI based on configuration
+
       updateUIForConfiguration();
     }
   } catch (error) {
-    // Ignore errors to keep client behavior safe
     console.warn('Failed to fetch server info:', error);
   }
 }
@@ -558,61 +585,57 @@ async function fetchServerInfo() {
  */
 function updateUIForConfiguration() {
   const config = getServerConfig();
-  
-  // Determine the tooltip message for disabled controls
+
   const getTooltip = (operation) => {
-    if (config.readOnly) {
-      return 'System is read-only';
-    }
+    if (config.readOnly) return 'System is read-only';
     const check = isOperationAllowed(operation);
     return check.allowed ? '' : check.reason;
   };
-  
-  // Upload controls (FAB, new folder button, modal, drag-drop)
+
   const uploadAllowed = isOperationAllowed('upload').allowed;
-  
+
   if (DOM.fabUpload) {
     DOM.fabUpload.disabled = !uploadAllowed;
     DOM.fabUpload.title = uploadAllowed ? 'Upload files' : getTooltip('upload');
     if (!uploadAllowed) {
       DOM.fabUpload.style.opacity = '0.5';
-      DOM.fabUpload.style.cursor = 'not-allowed';
+      DOM.fabUpload.style.cursor  = 'not-allowed';
     } else {
       DOM.fabUpload.style.opacity = '';
-      DOM.fabUpload.style.cursor = '';
+      DOM.fabUpload.style.cursor  = '';
     }
   }
-  
+
   if (DOM.newFolderBtn) {
     DOM.newFolderBtn.disabled = !uploadAllowed;
     DOM.newFolderBtn.title = uploadAllowed ? 'Create new folder' : getTooltip('upload');
     if (!uploadAllowed) {
       DOM.newFolderBtn.style.opacity = '0.5';
-      DOM.newFolderBtn.style.cursor = 'not-allowed';
+      DOM.newFolderBtn.style.cursor  = 'not-allowed';
     } else {
       DOM.newFolderBtn.style.opacity = '';
-      DOM.newFolderBtn.style.cursor = '';
+      DOM.newFolderBtn.style.cursor  = '';
     }
   }
-  
-  // Disable drag-drop if uploads not allowed
+
   if (!uploadAllowed) {
     document.body.classList.add('uploads-disabled');
   } else {
     document.body.classList.remove('uploads-disabled');
   }
-  
-  // Update selection bar button states
+
   updateSelectionButtonStates();
 }
 
 // =====================================
 // GLOBAL EVENT HANDLERS
+// (drag-and-drop + browser history navigation)
+// Note: keyboard shortcuts and mouse back button are handled by inputHandlers.js
 // =====================================
 function setupGlobalEventHandlers() {
   // Global drag and drop for the entire page
   let dragCounter = 0;
-  
+
   document.addEventListener('dragenter', (e) => {
     e.preventDefault();
     dragCounter++;
@@ -620,7 +643,7 @@ function setupGlobalEventHandlers() {
       document.body.classList.add('drag-active');
     }
   });
-  
+
   document.addEventListener('dragleave', (e) => {
     e.preventDefault();
     dragCounter--;
@@ -628,33 +651,30 @@ function setupGlobalEventHandlers() {
       document.body.classList.remove('drag-active');
     }
   });
-  
+
   document.addEventListener('dragover', (e) => {
     e.preventDefault();
   });
-  
+
   document.addEventListener('drop', async (e) => {
     e.preventDefault();
     dragCounter = 0;
     document.body.classList.remove('drag-active');
-    
-    // Check if search is active
+
     if (isSearchActive()) {
       showError('Cannot upload files while search is active. Clear search first.');
       return;
     }
-    
-    // Check if uploads are allowed before processing
+
     const check = isOperationAllowed('upload');
     if (!check.allowed) {
       showError(check.reason);
       return;
     }
-    
+
     const dataTransfer = e.dataTransfer;
     if (!dataTransfer) return;
-    
-    // Try to use DataTransferItem API for folder support
+
     if (dataTransfer.items && dataTransfer.items.length > 0) {
       try {
         const fileItems = await extractFilesFromDataTransfer(dataTransfer.items);
@@ -663,7 +683,6 @@ function setupGlobalEventHandlers() {
         }
       } catch (err) {
         console.error('Error extracting files from drop:', err);
-        // Fallback to simple file list
         const files = dataTransfer.files;
         if (files && files.length > 0) {
           const fileItems = extractFilesFromFileList(files);
@@ -671,58 +690,31 @@ function setupGlobalEventHandlers() {
         }
       }
     } else if (dataTransfer.files && dataTransfer.files.length > 0) {
-      // Fallback for browsers without DataTransferItem support
       const fileItems = extractFilesFromFileList(dataTransfer.files);
       uploadFiles(fileItems);
     }
   });
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    // Upload shortcut (Ctrl/Cmd + U)
-    if ((e.ctrlKey || e.metaKey) && e.key === KEYBOARD_SHORTCUTS.UPLOAD) {
-      e.preventDefault();
-      showModal();
-    }
-    
-    // Refresh shortcut (F5 or Ctrl/Cmd + R)
-    if (e.key === KEYBOARD_SHORTCUTS.REFRESH_ALT || ((e.ctrlKey || e.metaKey) && e.key === KEYBOARD_SHORTCUTS.REFRESH)) {
-      e.preventDefault();
-      stateRequestRefresh(true);
-    }
+  // ── Browser history navigation (back button / swipe-back / touch back) ──
+  // When the user navigates into a folder, list.js pushes a history state.
+  // Pressing back pops that state and we navigate to the stored path.
+  window.addEventListener('popstate', (e) => {
+    // Clear any active selection before navigating — consistent with breadcrumb behaviour
+    deselectAll();
 
-    // Info modal shortcut (F1)
-    if (e.key === KEYBOARD_SHORTCUTS.HELP) {
-      e.preventDefault();
-      showInfoModal();
-    }
-
-    // Close modals with Escape
-    if (e.key === KEYBOARD_SHORTCUTS.ESCAPE) {
-      hideModal();
-      hideInfoModal();
-      hideSearchModal();
-      hideViewOptionsModal();
+    if (e.state && typeof e.state.path === 'string') {
+      // State-based navigation (pushed by handleItemClick / handleNavigationUp)
+      setCurrentPathWithRefresh(e.state.path);
     }
   });
 
-  // Handle browser back/forward and hash navigation
-  window.addEventListener('popstate', () => {
-    handleHashNavigation();
-  });
-  
-  window.addEventListener('hashchange', () => {
-    handleHashNavigation();
-  });
-
-  // Handle visibility change (pause/resume operations when tab is hidden)
+  // Handle visibility change (refresh when tab becomes visible again)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      // Refresh when tab becomes visible again
       stateRequestRefresh();
     }
   });
-  
+
   // Setup breadcrumb click handler for deep search results
   document.addEventListener('click', (e) => {
     if (e.target.classList.contains('breadcrumb-link')) {
@@ -734,8 +726,14 @@ function setupGlobalEventHandlers() {
   });
 }
 
+// =====================================
+// SINGLE ENTRY POINT
+// =====================================
+
 /**
- * Handle hash-based navigation for opening folders via URL
+ * Handle hash-based navigation for shared folder links.
+ * Called once on initial page load to support URLs like index.php#path=folder/sub.
+ * In-app navigation uses clean URLs (no hash); this only handles the initial load.
  */
 function handleHashNavigation() {
   const hash = window.location.hash;
@@ -745,12 +743,8 @@ function handleHashNavigation() {
   }
 }
 
-// =====================================
-// SINGLE ENTRY POINT
-// =====================================
-// Start the application
 initializeApp().then(() => {
-  // Check for hash navigation on initial load
+  // Navigate to shared folder if a #path= hash is present in the URL
   handleHashNavigation();
 }).catch(error => {
   console.error('Application failed to start:', error);

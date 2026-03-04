@@ -110,10 +110,11 @@ export const KEYBOARD_SHORTCUTS = {
   UPLOAD: 'u',           // Ctrl/Cmd + U
   REFRESH: 'r',          // Ctrl/Cmd + R
   SELECT_ALL: 'a',       // Ctrl/Cmd + A
-  DELETE: 'Delete',      // Delete or Backspace
-  DELETE_ALT: 'Backspace',
+  DELETE: 'Delete',      // Delete key → delete selected items
+  DELETE_ALT: 'Backspace', // Backspace with selection → delete; without selection → navigate up
+  NAVIGATE_UP: 'Backspace', // Backspace with no selection → navigate up
   RENAME: 'F2',
   ESCAPE: 'Escape',
   HELP: 'F1',
-  REFRESH_ALT: 'F5'
+  REFRESH_ALT: 'F5',
 };

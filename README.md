@@ -56,7 +56,7 @@ Designed to solve the "How do I send you these photos?" problem.
 - **⚡ Fast Performance**: Optimized for speed with concurrent uploads
 - **🔒 Secure**: Path traversal protection and input sanitization
 - **🎯 Multi-Select**: Select multiple items for batch operations (works in search results too!)
-- **⌨️ Keyboard Shortcuts**: Efficient navigation with keyboard commands
+- **⌨️ Keyboard Shortcuts**: Keyboard shortcuts for upload, select, delete, rename, navigate up, and more
 - **🎬 Media Streaming**: Stream videos, audio, and view images directly in browser
 - **📦 Drag & Drop**: Upload files and folders by dragging them anywhere on the page
 - **🖱️ Context Menu**: Right-click (desktop) or long-press (mobile) for quick actions
@@ -159,18 +159,29 @@ NanoCloud automatically uses chunked uploads for files larger than 2MB, enabling
 |----------|--------|
 | `Ctrl/Cmd + U` | Open upload modal |
 | `Ctrl/Cmd + A` | Select all items |
-| `Ctrl/Cmd + Click` | Multi-select items |
+| `Ctrl/Cmd + Click` | Toggle item selection |
+| `Shift + Click` | Standard range selection |
 | `F5` or `Ctrl/Cmd + R` | Refresh listing |
-| `Delete` or `Backspace` | Delete selected items |
+| `Delete` | Delete selected items |
+| `Backspace` | Navigate up one directory (clears selection if active) |
 | `F2` | Rename selected item |
 | `Escape` | Deselect all / Close modals |
 | `F1` | Open user guide |
 
+### Mouse Navigation
+
+| Action | Result |
+|--------|--------|
+| Mouse back button | Navigate up one directory (clears selection if active) |
+| Browser back / swipe-back | Navigate up one directory (clears selection if active) |
+
 ### Touch Gestures
 
 - **Tap**: Open file or folder
-- **Press & Hold (500ms)**: Select item (with haptic feedback)
-- **Tap after selection**: Add more items to selection
+- **Press & Hold (500ms)** on unselected item: Enter selection mode (with haptic feedback)
+- **Press & Hold (500ms)** on selected item: Show context menu
+- **Tap while items are selected**: Toggle item selection
+- **Swipe back**: Navigate up one directory
 - **Drag & Drop**: Upload files anywhere on the page
 
 ### File Operations
