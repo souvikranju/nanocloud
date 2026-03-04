@@ -206,7 +206,7 @@ To customize the menu appearance, modify the CSS in `components.css`:
 
 ```css
 .context-menu {
-  background: white;
+  background: var(--color-bg-elevated); /* responds to light/dark theme */
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-2xl);
   /* Add your custom styles */

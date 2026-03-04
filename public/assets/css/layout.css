@@ -93,13 +93,13 @@
   transition: width var(--transition-normal);
 }
 
-.bar-green { background: var(--success-500); }
+.bar-green  { background: var(--success-500); }
 .bar-orange { background: var(--warning-500); }
-.bar-red { background: var(--error-500); }
+.bar-red    { background: var(--error-500); }
 
 /* Main Content */
 .main-content {
-  background: white;
+  background: var(--color-bg-elevated);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   overflow: hidden;
@@ -108,8 +108,8 @@
 /* File List Controls Section (Top Row) */
 .file-list-controls-section {
   padding: var(--space-6) var(--space-6) var(--space-4);
-  border-bottom: 1px solid var(--gray-200);
-  background: var(--gray-50);
+  border-bottom: 1px solid var(--color-border-secondary);
+  background: var(--color-bg-secondary);
 }
 
 .file-list-controls {
@@ -122,8 +122,8 @@
 /* Breadcrumbs Section (Separate Row) */
 .breadcrumbs-section {
   padding: var(--space-4) var(--space-6);
-  background: white;
-  border-bottom: 1px solid var(--gray-100);
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 /* File List Container */
