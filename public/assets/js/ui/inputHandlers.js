@@ -244,7 +244,11 @@ function initTouchHandlers(fileListEl) {
 
   fileListEl.addEventListener('touchstart',  handleTouchStart,  { passive: false });
   fileListEl.addEventListener('touchend',    handleTouchEnd,    { passive: false });
-  fileListEl.addEventListener('touchmove',   handleTouchMove,   { passive: false });
+  // passive: true — handleTouchMove never calls preventDefault(), so there is no
+  // reason to block the browser's native gesture pipeline.  Marking it passive
+  // lets Chrome/Safari commit to scroll and swipe-back gestures immediately
+  // without waiting for JS, which is critical for edge-swipe back on Android.
+  fileListEl.addEventListener('touchmove',   handleTouchMove,   { passive: true });
   fileListEl.addEventListener('touchcancel', handleTouchCancel, { passive: false });
 
   // Smart context-menu suppression:

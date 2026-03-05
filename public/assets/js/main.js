@@ -638,6 +638,12 @@ function updateUIForConfiguration() {
 // Note: keyboard shortcuts and mouse back button are handled by inputHandlers.js
 // =====================================
 function setupGlobalEventHandlers() {
+  // Stamp the initial page-load history entry with the current path.
+  // The browser never sets state on the very first entry (state === null).
+  // Without this, a mobile swipe-back to the first entry fires popstate with
+  // e.state === null and the handler below has nothing to navigate to.
+  history.replaceState({ path: getCurrentPath() }, '', window.location.pathname);
+
   // Global drag and drop for the entire page
   let dragCounter = 0;
 
@@ -710,6 +716,11 @@ function setupGlobalEventHandlers() {
     if (e.state && typeof e.state.path === 'string') {
       // State-based navigation (pushed by handleItemClick / handleNavigationUp)
       setCurrentPathWithRefresh(e.state.path);
+    } else {
+      // Fallback: e.state is null on the initial page-load history entry
+      // (replaceState above should prevent this in normal use, but guard
+      // defensively for any edge-case where state is missing).
+      setCurrentPathWithRefresh('');
     }
   });
 

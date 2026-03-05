@@ -397,10 +397,13 @@ After every render, `list.js` calls `updateInputHandlerItems(items)` to keep the
 #### Browser History Integration
 `list.js` calls `history.pushState({ path }, '', window.location.pathname)` on every folder entry — the path is stored **only in the state object**, not in the URL bar, keeping the address bar clean at all times.
 
+`main.js` calls `history.replaceState({ path: getCurrentPath() }, '', window.location.pathname)` **once during startup** to stamp the initial page-load history entry with a valid state object. The browser never sets state on the first entry itself (it is always `null`); without this stamp, a swipe-back to the very first entry fires `popstate` with `e.state === null` and the handler has nothing to navigate to — the UI silently freezes.
+
 `main.js` listens for `popstate` and navigates to `e.state.path` (after calling `deselectAll()`), enabling:
-- Browser back button
-- Mouse back button (button 3)
-- Swipe-back on mobile/trackpad
+- Browser back button (toolbar)
+- Swipe-back on mobile / trackpad
+
+> **Note:** Mouse button 3 (hardware back button on a mouse) is handled **separately** by `handleMouseButtons` in `inputHandlers.js`, which calls `onNavigateUp` directly without going through `popstate`. It always navigates *up one directory level* rather than to the previous history entry. These are two distinct code paths; the `popstate` path is the one used by mobile swipe-back.
 
 All navigation paths (breadcrumbs, Up button, Backspace, mouse back, browser back) call `deselectAll()` before navigating to keep selection state consistent.
 
