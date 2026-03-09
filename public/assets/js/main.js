@@ -8,7 +8,7 @@ import {
   MODAL_HIDDEN_CLASS,
   MODAL_ARIA_HIDDEN,
 } from './constants.js';
-import { getCurrentPath, hasExistingName, setServerConfig, getServerConfig, isOperationAllowed } from './state.js';
+import { getCurrentPath, setCurrentPath, hasExistingName, setServerConfig, getServerConfig, isOperationAllowed } from './state.js';
 import { deselectAll } from './ui/selection.js';
 import { updateSelectionButtonStates } from './ui/list.js';
 import { parentPath, sanitizeSegment, formatBytes, extractFilesFromDataTransfer, extractFilesFromFileList } from './utils.js';
@@ -23,6 +23,12 @@ import { isSearchActive } from './ui/filterSort.js';
 import { initInputHandlers } from './ui/inputHandlers.js';
 import { initTheme } from './ui/theme.js';
 
+// Capture the initial URL hash at module load time, BEFORE any
+// history.replaceState() call can strip it.  setupGlobalEventHandlers()
+// calls replaceState with window.location.pathname (no hash), which would
+// destroy a shared-folder deep-link like index.php#path=folder/sub before
+// handleHashNavigation() ever gets a chance to read it.
+const INITIAL_HASH = window.location.hash;
 
 // =====================================
 // DOM REFERENCES (grouped by concern)
@@ -517,13 +523,26 @@ async function initializeApp() {
       fileListEl: DOM.fileList,
     });
 
+    // If a shared-folder deep-link hash is present (e.g. #path=folder/sub),
+    // set the initial path NOW — before setupGlobalEventHandlers() — so that
+    // history.replaceState() stamps the correct folder path into the initial
+    // history entry.  This ensures browser-back from a subfolder returns to
+    // the shared folder rather than root.
+    if (INITIAL_HASH.startsWith('#path=')) {
+      const sharedPath = decodeURIComponent(INITIAL_HASH.substring(6));
+      setCurrentPath(sharedPath);
+    }
+
     // Setup global drag-and-drop and browser history handlers
+    // (must come after the setCurrentPath call above so replaceState uses
+    // the correct initial path)
     setupGlobalEventHandlers();
 
     // Fetch server information
     await fetchServerInfo();
 
-    // Load initial file listing
+    // Load initial file listing (loads the shared folder directly if
+    // setCurrentPath was called above, otherwise loads root)
     await fetchAndRenderList();
 
     // Ensure FAB is visible on first load
@@ -750,11 +769,15 @@ function setupGlobalEventHandlers() {
  * Handle hash-based navigation for shared folder links.
  * Called once on initial page load to support URLs like index.php#path=folder/sub.
  * In-app navigation uses clean URLs (no hash); this only handles the initial load.
+ *
+ * IMPORTANT: uses INITIAL_HASH (captured at module load) rather than
+ * window.location.hash, because setupGlobalEventHandlers() calls
+ * history.replaceState(..., window.location.pathname) which strips the hash
+ * from the live URL before this function is ever invoked.
  */
 function handleHashNavigation() {
-  const hash = window.location.hash;
-  if (hash.startsWith('#path=')) {
-    const path = decodeURIComponent(hash.substring(6));
+  if (INITIAL_HASH.startsWith('#path=')) {
+    const path = decodeURIComponent(INITIAL_HASH.substring(6));
     setCurrentPathWithRefresh(path);
   }
 }
