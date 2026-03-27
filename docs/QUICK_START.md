@@ -215,7 +215,7 @@ For quick testing without configuring a web server:
 
 ```bash
 cd /var/www/nanocloud
-php -S 0.0.0.0:8080 -t .
+php -S 0.0.0.0:8080
 ```
 
 Then access via: `http://your-server-ip:8080`

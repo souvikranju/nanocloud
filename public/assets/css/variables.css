@@ -192,6 +192,17 @@
   --color-interactive-hover:    var(--primary-700);
   --color-interactive-disabled: var(--gray-400);
 
+  /* ── Accent backgrounds (hover states, active states, focus rings) ── */
+  --color-accent-subtle:  var(--primary-50);   /* very subtle accent bg   */
+  --color-accent-muted:   var(--primary-100);  /* muted accent bg         */
+  --color-focus-ring:     rgba(33, 150, 243, 0.25); /* input focus shadow */
+
+  /* ── Status text colours ── */
+  --color-success-text:   var(--success-700);
+  --color-warning-text:   var(--warning-700);
+  --color-error-text:     var(--error-700);
+  --color-info-text:      var(--primary-600);
+
   /* ── Status: success ── */
   --color-success:        var(--success-500);
   --color-success-bg:     var(--success-50);
@@ -233,50 +244,82 @@
    ===================================================== */
 [data-theme="dark"] {
 
-  /* ── Page & surface backgrounds ── */
-  --color-bg-body:      #0f0f0f;  /* <body> background                  */
-  --color-bg-primary:   #1a1a1a;  /* primary surface                    */
-  --color-bg-secondary: #1e1e1e;  /* subtle tinted surface              */
-  --color-bg-tertiary:  #2a2a2a;  /* stronger tinted surface            */
-  --color-bg-elevated:  #242424;  /* modals, dropdowns, toasts          */
-  --color-bg-overlay:   rgba(0, 0, 0, 0.70); /* modal backdrop          */
+  /* ── Page & surface backgrounds ──────────────────────
+     Blue-tinted dark palette: each step is perceptibly
+     distinct so elevation hierarchy reads clearly on
+     real screens. Inspired by GitHub Dark — the gold
+     standard for open-source tooling.
+  ─────────────────────────────────────────────────── */
+  --color-bg-body:      #0d1117;  /* deepest — page canvas              */
+  --color-bg-primary:   #161b22;  /* primary surface (cards, main)      */
+  --color-bg-secondary: #1c2128;  /* control bars, modal headers/footers*/
+  --color-bg-tertiary:  #21262d;  /* hover states, nested surfaces      */
+  --color-bg-elevated:  #22272e;  /* modals, dropdowns, toasts (float)  */
+  --color-bg-overlay:   rgba(1, 4, 9, 0.75); /* modal backdrop          */
 
   /* ── Text ── */
-  --color-text-primary:   #e8e8e8; /* headings, body copy               */
-  --color-text-secondary: #a0a0a0; /* supporting text                   */
-  --color-text-tertiary:  #707070; /* placeholders, meta                */
-  --color-text-disabled:  #4a4a4a; /* disabled states                   */
-  --color-text-inverse:   #121212; /* text on light/inverted bg         */
+  --color-text-primary:   #e6edf3; /* headings, body copy               */
+  --color-text-secondary: #8b949e; /* supporting text                   */
+  --color-text-tertiary:  #6e7681; /* placeholders, meta                */
+  --color-text-disabled:  #484f58; /* disabled states                   */
+  --color-text-inverse:   #0d1117; /* text on light/inverted bg         */
 
   /* ── Borders ── */
-  --color-border-primary:   #3a3a3a; /* prominent borders               */
-  --color-border-secondary: #2e2e2e; /* standard dividers               */
-  --color-border-subtle:    #222222; /* very faint separators           */
-  --color-border-focus:     var(--primary-400); /* focus rings          */
+  --color-border-primary:   #30363d; /* prominent borders               */
+  --color-border-secondary: #21262d; /* standard dividers               */
+  --color-border-subtle:    #161b22; /* very faint separators           */
+  --color-border-focus:     #388bfd; /* focus rings — bright blue       */
 
-  /* ── Status: success (slightly muted in dark) ── */
-  --color-success-bg:     rgba(76, 175, 80, 0.12);
-  --color-success-border: rgba(76, 175, 80, 0.30);
+  /* ── Interactive / brand ──────────────────────────────
+     Brighter blue for dark surfaces: interactive elements
+     pop without being neon. Hover goes lighter (not
+     darker) — correct affordance on dark backgrounds.
+  ─────────────────────────────────────────────────── */
+  --color-interactive:          #58a6ff;
+  --color-interactive-hover:    #79c0ff;
+  --color-interactive-disabled: #484f58;
+
+  /* ── Accent backgrounds ── */
+  --color-accent-subtle:  rgba(56, 139, 253, 0.15); /* replaces --primary-50  */
+  --color-accent-muted:   rgba(56, 139, 253, 0.25); /* replaces --primary-100 */
+  --color-focus-ring:     rgba(56, 139, 253, 0.30); /* input focus shadow     */
+
+  /* ── Status text colours ── */
+  --color-success-text:   #3fb950;
+  --color-warning-text:   #d29922;
+  --color-error-text:     #f85149;
+  --color-info-text:      #58a6ff;
+
+  /* ── Status: success ── */
+  --color-success:        #3fb950;
+  --color-success-bg:     rgba(63, 185, 80, 0.15);
+  --color-success-border: rgba(63, 185, 80, 0.40);
 
   /* ── Status: warning ── */
-  --color-warning-bg:     rgba(255, 152, 0, 0.12);
-  --color-warning-border: rgba(255, 152, 0, 0.30);
+  --color-warning:        #d29922;
+  --color-warning-bg:     rgba(210, 153, 34, 0.15);
+  --color-warning-border: rgba(210, 153, 34, 0.40);
 
   /* ── Status: error ── */
-  --color-error-bg:     rgba(244, 67, 54, 0.12);
-  --color-error-border: rgba(244, 67, 54, 0.30);
+  --color-error:          #f85149;
+  --color-error-bg:       rgba(248, 81, 73, 0.15);
+  --color-error-border:   rgba(248, 81, 73, 0.40);
 
   /* ── Status: info ── */
-  --color-info-bg:     rgba(33, 150, 243, 0.12);
-  --color-info-border: rgba(33, 150, 243, 0.30);
+  --color-info:           #58a6ff;
+  --color-info-bg:        rgba(56, 139, 253, 0.15);
+  --color-info-border:    rgba(56, 139, 253, 0.40);
 
-  /* ── Shadows (deeper in dark mode for better elevation cues) ── */
-  --shadow-sm:  0 1px 2px 0 rgba(0, 0, 0, 0.40);
-  --shadow-md:  0 4px 6px -1px rgba(0, 0, 0, 0.50),
-                0 2px 4px -1px rgba(0, 0, 0, 0.40);
-  --shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, 0.55),
-                0 4px 6px -2px rgba(0, 0, 0, 0.40);
-  --shadow-xl:  0 20px 25px -5px rgba(0, 0, 0, 0.60),
-                0 10px 10px -5px rgba(0, 0, 0, 0.45);
-  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.70);
+  /* ── Shadows ──────────────────────────────────────────
+     Blue-black tinted shadows give depth without the
+     flat look of pure-black shadows on dark surfaces.
+  ─────────────────────────────────────────────────── */
+  --shadow-sm:  0 1px 3px rgba(1, 4, 9, 0.50);
+  --shadow-md:  0 4px 8px rgba(1, 4, 9, 0.55),
+                0 2px 4px rgba(1, 4, 9, 0.40);
+  --shadow-lg:  0 8px 24px rgba(1, 4, 9, 0.60),
+                0 4px 8px rgba(1, 4, 9, 0.45);
+  --shadow-xl:  0 16px 32px rgba(1, 4, 9, 0.65),
+                0 8px 16px rgba(1, 4, 9, 0.50);
+  --shadow-2xl: 0 24px 48px rgba(1, 4, 9, 0.75);
 }
