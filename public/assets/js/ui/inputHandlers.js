@@ -127,15 +127,18 @@ export function cleanupInputHandlers() {
  * @param {KeyboardEvent} event
  */
 function handleKeyDown(event) {
-  // Never intercept shortcuts while the user is typing in an input/textarea
-  const tag = event.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-    return;
-  }
-
+  const key = event.key;
   const ctrl = event.ctrlKey || event.metaKey;
   const shift = event.shiftKey;
-  const key = event.key;
+
+  // Never intercept shortcuts while the user is typing in an input/textarea —
+  // EXCEPT for Escape, which must always work so users can dismiss modals
+  // regardless of where focus is.
+  const tag = event.target.tagName;
+  const isInInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (isInInput && key !== KEYBOARD_SHORTCUTS.ESCAPE) {
+    return;
+  }
 
   // ── Global shortcuts (no modifier required for F-keys) ──────────────────
 

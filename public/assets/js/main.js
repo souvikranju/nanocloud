@@ -500,6 +500,10 @@ async function initializeApp() {
         hideInfoModal();
         hideSearchModal();
         hideViewOptionsModal();
+        // Close rename modal if open — triggers existing handleCancel + cleanup in itemActions.js
+        document.getElementById('renameCancelBtn')?.click();
+        // Close move modal if open — triggers existing handleCancel + cleanup in itemActions.js
+        document.getElementById('moveCancelBtn')?.click();
       },
       onNavigateUp:  handleNavigationUp,
 
