@@ -42,8 +42,9 @@
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--color-bg-secondary);
-  border-color: var(--color-border-primary);
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-focus);
+  color: var(--color-interactive);
 }
 
 .btn-danger {
