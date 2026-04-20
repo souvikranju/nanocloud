@@ -37,8 +37,19 @@ if (!is_dir($storageRoot)) {
     }
 }
 
-// Get action from request
-$action = Request::input('action', 'list');
+// Read action from query string first, then POST body.
+// $\_REQUEST is avoided because it also merges $_COOKIE, which would allow a
+// cookie named 'action' to override the intended operation.
+$action = Request::get('action') ?? Request::post('action') ?? 'list';
+
+// Write operations must arrive as POST.  A GET request cannot carry a meaningful
+// POST body so these handlers would fail gracefully, but enforcing the method here
+// adds an explicit, documentable constraint and prevents accidental read-via-GET.
+$writeActions = ['upload', 'upload_chunk', 'upload_check', 'delete',
+                 'create_dir', 'delete_dir', 'rename_file', 'rename_dir', 'move'];
+if (in_array($action, $writeActions, true) && !Request::isPost()) {
+    Response::error('Method not allowed.', 405);
+}
 
 // Route to appropriate handler
 try {
@@ -57,8 +68,10 @@ try {
         default => Response::error('Unknown action.')
     };
 } catch (Throwable $e) {
-    // Return structured error for debugging
-    Response::serverError('Server error: ' . $e->getMessage());
+    // Log the full exception internally; never expose file paths or stack traces
+    // to callers — that information aids attackers in mapping the server layout.
+    error_log('[NanoCloud] Unhandled exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    Response::serverError('An internal error occurred. Please try again.');
 }
 
 /**

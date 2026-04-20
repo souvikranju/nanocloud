@@ -165,10 +165,18 @@ export async function uploadFiles(fileItems, concurrency = MAX_CONCURRENT_UPLOAD
   // Refresh list and storage once at the end using optimized request tracking
   requestRefresh(true); // Force refresh after successful uploads
 
-  // Leave progress visible briefly, then clear and bring back FAB
-  setTimeout(() => {
-    clearAll();
-    hidePanel();
+  // Only auto-hide the progress panel when every upload succeeded.
+  // If any file failed, leave the panel visible so the user can read the error
+  // state — hiding it immediately would cause them to miss the failure messages.
+  const allSucceeded = results.every(r => r && r.success);
+  if (allSucceeded) {
+    setTimeout(() => {
+      clearAll();
+      hidePanel();
+      showFab();
+    }, UPLOAD_PROGRESS_AUTO_HIDE_MS);
+  } else {
+    // Bring back the FAB but keep the panel open with error state visible.
     showFab();
-  }, UPLOAD_PROGRESS_AUTO_HIDE_MS);
+  }
 }

@@ -20,6 +20,7 @@ import { info as apiInfo, createDir as apiCreateDir } from './nanocloudClient.js
 import { uploadFiles } from './uploader.js';
 import { updateChecker } from './updateChecker.js';
 import { isSearchActive } from './ui/filterSort.js';
+import { setHideSearchModalCallback, setToastCallbacks } from './ui/filterSort.js';
 import { initInputHandlers } from './ui/inputHandlers.js';
 import { initTheme } from './ui/theme.js';
 
@@ -102,10 +103,9 @@ function initializeModules() {
     toastContainer: DOM.toastContainer,
   });
 
-  // Expose toast functions globally for filterSort module
-  window.showError = showError;
-  window.showInfo = showInfo;
-  window.showSuccess = showSuccess;
+  // Wire toast functions into filterSort.js via explicit setters instead of
+  // window globals.  This keeps the dependency visible and testable.
+  setToastCallbacks({ showError, showInfo });
 
   // Initialize progress tracking
   initProgress({
@@ -174,32 +174,52 @@ function setupModalEventHandlers() {
     });
   }
 
-  // Create hidden file input dynamically
   const hiddenFileInput = document.createElement('input');
   hiddenFileInput.type = 'file';
   hiddenFileInput.multiple = true;
-  hiddenFileInput.webkitdirectory = true;
   hiddenFileInput.style.display = 'none';
   document.body.appendChild(hiddenFileInput);
 
-  // Handle file selection
-  hiddenFileInput.addEventListener('change', () => {
-    const files = hiddenFileInput.files;
+  const hiddenFolderInput = document.createElement('input');
+  hiddenFolderInput.type = 'file';
+  hiddenFolderInput.multiple = true;
+  hiddenFolderInput.webkitdirectory = true;
+  hiddenFolderInput.style.display = 'none';
+  document.body.appendChild(hiddenFolderInput);
+
+  // Shared handler for both inputs
+  function handleSelectedFiles(files) {
     if (files && files.length > 0) {
       hideModal();
-      const fileItems = extractFilesFromFileList(files);
-      uploadFiles(fileItems);
-      // Clear the file input so the same file can be selected again
-      hiddenFileInput.value = '';
+      uploadFiles(extractFilesFromFileList(files));
     }
+  }
+
+  hiddenFileInput.addEventListener('change', () => {
+    handleSelectedFiles(hiddenFileInput.files);
+    hiddenFileInput.value = '';
   });
 
-  // Make drop area clickable to trigger file input
+  hiddenFolderInput.addEventListener('change', () => {
+    handleSelectedFiles(hiddenFolderInput.files);
+    hiddenFolderInput.value = '';
+  });
+
+  // Drop area click → file picker; a separate "Select Folder" element in the HTML
+  // should trigger hiddenFolderInput.click() if present.
   if (DOM.modalDropArea) {
     DOM.modalDropArea.addEventListener('click', () => {
       hiddenFileInput.click();
     });
   }
+
+  // Allow any element with data-action="select-folder" to open the folder picker.
+  document.querySelectorAll('[data-action="select-folder"]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hiddenFolderInput.click();
+    });
+  });
 
   // Info modal handlers
   setupInfoModalHandlers();
@@ -232,8 +252,8 @@ function hideSearchModal() {
   }
 }
 
-// Expose hideSearchModal globally for filterSort module
-window.hideSearchModal = hideSearchModal;
+// Wire hideSearchModal into filterSort.js via explicit setter instead of window global.
+setHideSearchModalCallback(hideSearchModal);
 
 function setupSearchModalHandlers() {
   // Search trigger button
@@ -583,8 +603,8 @@ async function initializeUpdateChecker() {
   } catch (error) {
     console.warn('Failed to initialize update checker:', error);
     const versionDisplay = document.getElementById('versionDisplay');
-    if (versionDisplay) {
-      versionDisplay.textContent = 'v2.0';
+    if (versionDisplay && !versionDisplay.textContent) {
+      versionDisplay.textContent = 'unknown';
     }
   }
 }
@@ -786,9 +806,6 @@ function handleHashNavigation() {
   }
 }
 
-initializeApp().then(() => {
-  // Navigate to shared folder if a #path= hash is present in the URL
-  handleHashNavigation();
-}).catch(error => {
+initializeApp().catch(error => {
   console.error('Application failed to start:', error);
 });

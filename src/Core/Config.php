@@ -34,19 +34,24 @@ class Config
         }
         
         $configDir = dirname(__DIR__, 2) . '/config';
-        
-        // Load defaults
-        require $configDir . '/defaults.php';
-        
-        // Store default values
-        self::$config = get_defined_vars();
-        
-        // Load local overrides if they exist
+
+        // Load defaults in an isolated scope so only the variables defined
+        // inside defaults.php end up in self::$config.  A bare require +
+        // get_defined_vars() would also capture $configDir, $localConfig, and
+        // any other locals that happen to exist in this method's scope.
+        self::$config = (static function (string $dir): array {
+            require $dir . '/defaults.php';
+            return get_defined_vars();
+        })($configDir);
+
+        // Load local overrides if they exist, same isolation trick
         $localConfig = $configDir . '/local.php';
         if (file_exists($localConfig)) {
-            require $localConfig;
-            // Merge local values
-            self::$config = array_merge(self::$config, get_defined_vars());
+            $overrides = (static function (string $file): array {
+                require $file;
+                return get_defined_vars();
+            })($localConfig);
+            self::$config = array_merge(self::$config, $overrides);
         }
         
         // Set PHP runtime configuration

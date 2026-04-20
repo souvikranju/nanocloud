@@ -318,7 +318,7 @@ Upload a file chunk (used by the NanoCloud web UI for files larger than the conf
 
 **Example**:
 ```javascript
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB — matches the built-in client threshold
 // Use deterministic ID for resumability (hash of filename + size + mtime)
 const uploadId = '7d2f9a1b'; // Example deterministic ID
 const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
@@ -778,7 +778,7 @@ async function uploadFiles(files, targetPath) {
 
 ```javascript
 async function uploadLargeFile(file, targetPath) {
-  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB — matches the built-in client threshold
   
   // Generate deterministic upload ID based on file metadata
   // This ensures the same ID is generated if the upload is retried

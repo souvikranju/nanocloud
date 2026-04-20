@@ -146,8 +146,9 @@ function checkOperationAllowed(string $operation): array
  * @param int $precision Decimal precision
  * @return string Formatted size
  */
-function formatBytes(int $bytes, int $precision = 2): string
+function formatBytes(int|float $bytes, int $precision = 2): string
 {
+    $bytes = max(0.0, (float)$bytes);
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     
     for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {

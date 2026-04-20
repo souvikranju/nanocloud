@@ -142,51 +142,21 @@ class UploadService
             $result['message'] = getUploadErrorMessage($error);
             return $result;
         }
-        
-        // Sanitize the path
-        $sanitizedPath = $this->sanitizePath($relativePath, $originalName);
-        if ($sanitizedPath === '') {
-            $result['message'] = 'Invalid filename or path.';
+
+        // Validate destination (space check, dup check, mkdir) via shared helper.
+        $dest = $this->prepareDestination($relativePath, $originalName, $size, $targetDir);
+        if (isset($dest['error'])) {
+            $result['message'] = $dest['error'];
             return $result;
         }
-        
-        $finalPath = $targetDir . DIRECTORY_SEPARATOR . $sanitizedPath;
-        
-        // Create nested directories if needed
-        $finalDir = dirname($finalPath);
-        if ($finalDir !== $targetDir && !is_dir($finalDir)) {
-            if (!ensureDirectoryExists($finalDir)) {
-                $result['message'] = 'Failed to create directory structure.';
-                return $result;
-            }
-            
-            // Verify created directory is within root
-            $finalDirReal = realpath($finalDir);
-            $storageRoot = realpath(Config::get('STORAGE_ROOT'));
-            if ($finalDirReal === false || !PathValidator::isWithinRoot($storageRoot, $finalDirReal)) {
-                $result['message'] = 'Invalid directory path.';
-                return $result;
-            }
-        }
-        
-        // Check for duplicates
-        if (file_exists($finalPath)) {
-            $result['message'] = 'A file with the same name already exists.';
-            return $result;
-        }
-        
-        // Check disk space
-        if (!$this->storageService->hasEnoughSpace($size)) {
-            $result['message'] = 'Insufficient disk space on server.';
-            return $result;
-        }
-        
+        $finalPath = $dest['path'];
+
         // Validate uploaded file
         if (!is_uploaded_file($tmpName)) {
             $result['message'] = 'Invalid uploaded file.';
             return $result;
         }
-        
+
         // Move uploaded file directly to destination
         if (!@move_uploaded_file($tmpName, $finalPath)) {
             $result['message'] = 'Failed to move uploaded file.';
@@ -195,7 +165,10 @@ class UploadService
         
         // Apply permissions
         applyPermissions($finalPath, false);
-        
+
+        // Derive the sanitized relative path from the resolved destination path.
+        $sanitizedPath = substr($finalPath, strlen($targetDir) + 1);
+
         $result['success'] = true;
         $result['filename'] = $sanitizedPath;
         $result['message'] = 'File uploaded successfully.';
@@ -204,8 +177,63 @@ class UploadService
     }
     
     /**
+     * Validate destination path, check disk space, and create any needed
+     * intermediate directories.  Extracted to eliminate the identical
+     * validation pipeline that previously existed in both processFile() and
+     * mergeChunks().
+     *
+     * Disk space is checked BEFORE directory creation so that a nearly-full
+     * disk does not leave orphan directories behind.
+     *
+     * @param string $relativePath Relative path from folder upload (may be empty)
+     * @param string $filename     Original filename
+     * @param int    $size         Expected file size in bytes (used for space check)
+     * @param string $targetDir    Absolute path to the upload target directory
+     * @return array ['path' => string] on success, or ['error' => string] on failure
+     */
+    private function prepareDestination(
+        string $relativePath,
+        string $filename,
+        int $size,
+        string $targetDir
+    ): array {
+        $sanitizedPath = $this->sanitizePath($relativePath, $filename);
+        if ($sanitizedPath === '') {
+            return ['error' => 'Invalid filename or path.'];
+        }
+
+        $finalPath = $targetDir . DIRECTORY_SEPARATOR . $sanitizedPath;
+
+        // Space check first — avoids creating directories that will go unused.
+        if (!$this->storageService->hasEnoughSpace($size)) {
+            return ['error' => 'Insufficient disk space on server.'];
+        }
+
+        // Duplicate check before touching the filesystem.
+        if (file_exists($finalPath)) {
+            return ['error' => 'A file with the same name already exists.'];
+        }
+
+        // Create nested directories if the upload path has subdirectories.
+        $finalDir = dirname($finalPath);
+        if ($finalDir !== $targetDir && !is_dir($finalDir)) {
+            if (!ensureDirectoryExists($finalDir)) {
+                return ['error' => 'Failed to create directory structure.'];
+            }
+
+            $finalDirReal = realpath($finalDir);
+            $storageRoot  = realpath(Config::get('STORAGE_ROOT'));
+            if ($finalDirReal === false || !PathValidator::isWithinRoot($storageRoot, $finalDirReal)) {
+                return ['error' => 'Invalid directory path.'];
+            }
+        }
+
+        return ['path' => $finalPath];
+    }
+
+    /**
      * Sanitize upload path (handles folder uploads)
-     * 
+     *
      * @param string $relativePath Relative path from folder upload
      * @param string $filename Original filename
      * @return string Sanitized path
@@ -215,7 +243,7 @@ class UploadService
         if ($relativePath !== '') {
             return Sanitizer::sanitizeRelativePath($relativePath);
         }
-        
+
         return Sanitizer::sanitizeFilename($filename);
     }
     
@@ -345,10 +373,10 @@ class UploadService
                 'message' => 'No chunk data provided.'
             ];
         }
-        
+
         $tmpName = $chunkFile['tmp_name'];
         $error = $chunkFile['error'] ?? UPLOAD_ERR_NO_FILE;
-        
+
         // Handle PHP upload errors
         if ($error !== UPLOAD_ERR_OK) {
             return [
@@ -356,7 +384,18 @@ class UploadService
                 'message' => getUploadErrorMessage($error)
             ];
         }
-        
+
+        // Refuse early if the disk already has insufficient space for this chunk.
+        // Without this check a large upload can fill the disk with temp chunks
+        // and the error only surfaces at merge time.
+        $chunkSize = (int)($chunkFile['size'] ?? 0);
+        if ($chunkSize > 0 && !$this->storageService->hasEnoughSpace($chunkSize)) {
+            return [
+                'success' => false,
+                'message' => 'Insufficient disk space on server.'
+            ];
+        }
+
         // Validate uploaded file
         if (!is_uploaded_file($tmpName)) {
             return [
@@ -432,65 +471,24 @@ class UploadService
                 ];
             }
         }
-        
-        // Sanitize the path
-        $sanitizedPath = $this->sanitizePath($relativePath, $filename);
-        if ($sanitizedPath === '') {
-            $this->cleanupUploadDirectory($uploadDir);
-            return [
-                'success' => false,
-                'message' => 'Invalid filename or path.'
-            ];
-        }
-        
-        $finalPath = $targetDir . DIRECTORY_SEPARATOR . $sanitizedPath;
-        
-        // Create nested directories if needed
-        $finalDir = dirname($finalPath);
-        if ($finalDir !== $targetDir && !is_dir($finalDir)) {
-            if (!ensureDirectoryExists($finalDir)) {
-                $this->cleanupUploadDirectory($uploadDir);
-                return [
-                    'success' => false,
-                    'message' => 'Failed to create directory structure.'
-                ];
-            }
-            
-            // Verify created directory is within root
-            $finalDirReal = realpath($finalDir);
-            $storageRoot = realpath(Config::get('STORAGE_ROOT'));
-            if ($finalDirReal === false || !PathValidator::isWithinRoot($storageRoot, $finalDirReal)) {
-                $this->cleanupUploadDirectory($uploadDir);
-                return [
-                    'success' => false,
-                    'message' => 'Invalid directory path.'
-                ];
-            }
-        }
-        
-        // Check for duplicates
-        if (file_exists($finalPath)) {
-            $this->cleanupUploadDirectory($uploadDir);
-            return [
-                'success' => false,
-                'message' => 'A file with the same name already exists.'
-            ];
-        }
-        
-        // Calculate total size and check disk space
+
+        // Calculate total size from chunks before any filesystem changes.
         $totalSize = 0;
         for ($i = 0; $i < $totalChunks; $i++) {
-            $chunkPath = $uploadDir . DIRECTORY_SEPARATOR . $i . '.part';
-            $totalSize += filesize($chunkPath);
+            $totalSize += (int)@filesize($uploadDir . DIRECTORY_SEPARATOR . $i . '.part');
         }
-        
-        if (!$this->storageService->hasEnoughSpace($totalSize)) {
+
+        // Validate destination (space check, dup check, mkdir) via shared helper.
+        // Size is now known from chunks rather than metadata.
+        $dest = $this->prepareDestination($relativePath, $filename, $totalSize, $targetDir);
+        if (isset($dest['error'])) {
             $this->cleanupUploadDirectory($uploadDir);
             return [
                 'success' => false,
-                'message' => 'Insufficient disk space on server.'
+                'message' => $dest['error']
             ];
         }
+        $finalPath = $dest['path'];
         
         // Open final file for writing
         $finalHandle = @fopen($finalPath, 'wb');

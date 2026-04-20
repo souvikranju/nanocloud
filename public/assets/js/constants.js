@@ -111,8 +111,7 @@ export const KEYBOARD_SHORTCUTS = {
   REFRESH: 'r',          // Ctrl/Cmd + R
   SELECT_ALL: 'a',       // Ctrl/Cmd + A
   DELETE: 'Delete',      // Delete key → delete selected items
-  DELETE_ALT: 'Backspace', // Backspace with selection → delete; without selection → navigate up
-  NAVIGATE_UP: 'Backspace', // Backspace with no selection → navigate up
+  NAVIGATE_UP: 'Backspace', // Backspace → navigate up one directory
   RENAME: 'F2',
   ESCAPE: 'Escape',
   HELP: 'F1',

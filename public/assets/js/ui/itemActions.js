@@ -206,16 +206,19 @@ export async function deleteSelectedItems(targetItems = null) {
   let errorCount = 0;
   
   for (const item of itemsToDelete) {
+    // Declare itemName OUTSIDE the try block so it is accessible in the catch
+    // handler.  Previously it was const-scoped inside try {}, causing a
+    // ReferenceError whenever a delete operation failed.
+    const itemName = item.name;
+
     try {
-      const itemName = item.name;
-      
       // Use displayPath from deep search results if available, otherwise fall back to current path
       const path = typeof item.displayPath !== 'undefined' ? item.displayPath : getCurrentPath();
-      
-      const resp = item.type === 'dir' 
+
+      const resp = item.type === 'dir'
         ? await apiDeleteDir(path, itemName)
         : await apiDeleteFile(path, itemName);
-      
+
       if (resp.success) {
         successCount++;
       } else {
@@ -303,7 +306,10 @@ export async function renameSelectedItem(targetItem = null) {
     const newName = renameInput.value.trim();
     
     if (!newName) {
-      renameModalMessages.innerHTML = '<div class="upload-error-message">Please enter a new name</div>';
+      const msg = document.createElement('div');
+      msg.className = 'upload-error-message';
+      msg.textContent = 'Please enter a new name';
+      renameModalMessages.replaceChildren(msg);
       return;
     }
     
@@ -335,7 +341,10 @@ export async function renameSelectedItem(targetItem = null) {
       deselectAll();
       requestRefresh(true);
     } catch (err) {
-      renameModalMessages.innerHTML = `<div class="upload-error-message">Error: ${err.message || err}</div>`;
+      const msg = document.createElement('div');
+      msg.className = 'upload-error-message';
+      msg.textContent = `Error: ${err.message || err}`;
+      renameModalMessages.replaceChildren(msg);
     }
   };
   

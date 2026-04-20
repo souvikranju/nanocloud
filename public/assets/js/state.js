@@ -25,7 +25,6 @@ const nameSet = new Set();
 
 /** Request tracking for preventing duplicate refresh calls */
 let currentRequestId = 0;
-let pendingRefresh = false;
 let lastRefreshTime = 0;
 
 /** Auto-refresh callback - set by list module */
@@ -136,13 +135,9 @@ export async function requestRefresh(force = false, targetPath = null) {
   
   // Check time-based debouncing (only if not forced)
   if (!force && (now - lastRefreshTime < REFRESH_DEBOUNCE_MS)) {
-    console.log('not refreshing now - too soon after last refresh');
     return false;
   }
 
-  // Mark as pending and increment request ID
-  console.log('Starting refresh');
-  pendingRefresh = true;
   currentRequestId++;
   const requestId = currentRequestId;
   lastRefreshTime = now;
@@ -155,14 +150,6 @@ export async function requestRefresh(force = false, targetPath = null) {
   } catch (error) {
     console.warn('Auto-refresh failed:', error);
     return false;
-  } finally {
-    // Clear pending flag quickly to allow next refresh
-    setTimeout(() => {
-      if (currentRequestId === requestId) {
-        console.log('Clearing pending refresh');
-        pendingRefresh = false;
-      }
-    }, REFRESH_DEBOUNCE_MS);
   }
 }
 

@@ -69,12 +69,27 @@ import {
   applySortAndFilter,
   resetSearch,
   isSearchActive,
-  getSearchMode
+  getSearchMode,
+  setFilterSortCallback,
 } from './filterSort.js';
 
-// ==========================================
-// DOM References & State
-// ==========================================
+/**
+ * Escape a string for safe insertion into HTML text content or attribute values.
+ * Prevents XSS when server-provided strings (filenames, paths) are interpolated
+ * into innerHTML templates.
+ * @param {string} str
+ * @returns {string}
+ */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+
 
 /** @type {HTMLElement|null} Container for file items (UL/DIV) */
 let fileListEl = null;
@@ -162,10 +177,11 @@ export function initList(refs) {
     listViewBtn:        document.getElementById('listViewBtn')
   });
 
-  // Set up callback for filter/sort changes to trigger re-render
-  window.filterSortCallback = () => {
+  // Wire the filter/sort change callback without using window globals.
+  // filterSort.js calls this whenever the user changes search query or sort mode.
+  setFilterSortCallback(() => {
     applyFilterSortAndRender();
-  };
+  });
 
   // Initialize Context Menu module
   initContextMenu();
@@ -501,30 +517,21 @@ export function updateSelectionButtonStates() {
   if (deleteSelectedBtn) {
     deleteSelectedBtn.disabled = !deleteCheck.allowed;
     deleteSelectedBtn.title = deleteCheck.allowed ? 'Delete selected items' : deleteCheck.reason;
-    if (!deleteCheck.allowed) {
-      deleteSelectedBtn.style.opacity = '0.5';
-      deleteSelectedBtn.style.cursor  = 'not-allowed';
-    }
+    deleteSelectedBtn.classList.toggle('btn--disabled', !deleteCheck.allowed);
   }
 
   const renameCheck = isOperationAllowed('rename');
   if (renameSelectedBtn) {
     renameSelectedBtn.disabled = !renameCheck.allowed;
     renameSelectedBtn.title = renameCheck.allowed ? 'Rename selected item' : renameCheck.reason;
-    if (!renameCheck.allowed) {
-      renameSelectedBtn.style.opacity = '0.5';
-      renameSelectedBtn.style.cursor  = 'not-allowed';
-    }
+    renameSelectedBtn.classList.toggle('btn--disabled', !renameCheck.allowed);
   }
 
   const moveCheck = isOperationAllowed('move');
   if (moveSelectedBtn) {
     moveSelectedBtn.disabled = !moveCheck.allowed;
     moveSelectedBtn.title = moveCheck.allowed ? 'Move selected items' : moveCheck.reason;
-    if (!moveCheck.allowed) {
-      moveSelectedBtn.style.opacity = '0.5';
-      moveSelectedBtn.style.cursor  = 'not-allowed';
-    }
+    moveSelectedBtn.classList.toggle('btn--disabled', !moveCheck.allowed);
   }
 }
 
@@ -745,18 +752,15 @@ function updateMoveButtonState() {
   if (searchMode === 'deep') {
     moveSelectedBtn.disabled = true;
     moveSelectedBtn.title    = 'Move not available in deep search';
-    moveSelectedBtn.style.opacity = '0.5';
-    moveSelectedBtn.style.cursor  = 'not-allowed';
+    moveSelectedBtn.classList.add('btn--disabled');
   } else if (!moveCheck.allowed) {
     moveSelectedBtn.disabled = true;
     moveSelectedBtn.title    = moveCheck.reason;
-    moveSelectedBtn.style.opacity = '0.5';
-    moveSelectedBtn.style.cursor  = 'not-allowed';
+    moveSelectedBtn.classList.add('btn--disabled');
   } else {
     moveSelectedBtn.disabled = false;
     moveSelectedBtn.title    = 'Move selected items';
-    moveSelectedBtn.style.opacity = '';
-    moveSelectedBtn.style.cursor  = '';
+    moveSelectedBtn.classList.remove('btn--disabled');
   }
 }
 
@@ -799,30 +803,33 @@ function renderNormalItems(items, mode, query) {
   if (mode === 'quick' && query) {
     const header = document.createElement('div');
     header.className = 'search-results-header';
-    header.innerHTML = `
-      <div class="search-results-content">
-        <div class="search-results-title">
-          🔍 Search Results (${currentItems.length} items found)
-        </div>
-        <div class="search-results-info">
-          Searching in: ${getCurrentPath() || 'Home'}
-        </div>
-      </div>
-      <button class="btn btn-secondary" id="exitSearchBtn">
-        ✕ Clear Search
-      </button>
-    `;
-    fileListEl.appendChild(header);
 
-    const exitBtn = header.querySelector('#exitSearchBtn');
-    if (exitBtn) {
-      exitBtn.addEventListener('click', () => {
-        resetSearch();
-        if (window.filterSortCallback) {
-          window.filterSortCallback();
-        }
-      });
-    }
+    const content = document.createElement('div');
+    content.className = 'search-results-content';
+
+    const title = document.createElement('div');
+    title.className = 'search-results-title';
+    // textContent is safe — no HTML injection possible.
+    title.textContent = `🔍 Search Results (${currentItems.length} items found)`;
+
+    const info = document.createElement('div');
+    info.className = 'search-results-info';
+    info.textContent = `Searching in: ${getCurrentPath() || 'Home'}`;
+
+    content.appendChild(title);
+    content.appendChild(info);
+
+    const exitBtn = document.createElement('button');
+    exitBtn.className = 'btn btn-secondary';
+    exitBtn.textContent = '✕ Clear Search';
+    exitBtn.addEventListener('click', () => {
+      resetSearch();
+      applyFilterSortAndRender();
+    });
+
+    header.appendChild(content);
+    header.appendChild(exitBtn);
+    fileListEl.appendChild(header);
   }
 
   if (currentViewMode === VIEW_MODE_GRID) {
@@ -853,30 +860,32 @@ function renderDeepSearchResults(items, query) {
 
   const header = document.createElement('div');
   header.className = 'search-results-header';
-  header.innerHTML = `
-    <div class="search-results-content">
-      <div class="search-results-title">
-        🔍 Deep Search Results (${currentItems.length} items found)
-      </div>
-      <div class="search-results-info">
-        Searched from: ${getCurrentPath() || 'Home'}
-      </div>
-    </div>
-    <button class="btn btn-secondary" id="exitSearchBtn">
-      ✕ Clear Search
-    </button>
-  `;
-  fileListEl.appendChild(header);
 
-  const exitBtn = header.querySelector('#exitSearchBtn');
-  if (exitBtn) {
-    exitBtn.addEventListener('click', () => {
-      resetSearch();
-      if (window.filterSortCallback) {
-        window.filterSortCallback();
-      }
-    });
-  }
+  const content = document.createElement('div');
+  content.className = 'search-results-content';
+
+  const title = document.createElement('div');
+  title.className = 'search-results-title';
+  title.textContent = `🔍 Deep Search Results (${currentItems.length} items found)`;
+
+  const info = document.createElement('div');
+  info.className = 'search-results-info';
+  info.textContent = `Searched from: ${getCurrentPath() || 'Home'}`;
+
+  content.appendChild(title);
+  content.appendChild(info);
+
+  const exitBtn = document.createElement('button');
+  exitBtn.className = 'btn btn-secondary';
+  exitBtn.textContent = '✕ Clear Search';
+  exitBtn.addEventListener('click', () => {
+    resetSearch();
+    applyFilterSortAndRender();
+  });
+
+  header.appendChild(content);
+  header.appendChild(exitBtn);
+  fileListEl.appendChild(header);
 
   currentItems.forEach(item => {
     const resultItem = createDeepSearchResultItem(item);
@@ -906,9 +915,7 @@ function showEmptySearchState(query) {
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       resetSearch();
-      if (window.filterSortCallback) {
-        window.filterSortCallback();
-      }
+      applyFilterSortAndRender();
     });
   }
 }
@@ -959,6 +966,8 @@ function createDeepSearchResultItem(item) {
 
 /**
  * Generate HTML for clickable breadcrumbs in search results.
+ * Both the path attribute value and the visible text are HTML-escaped to prevent
+ * XSS if a server-provided folder name contains HTML metacharacters.
  */
 function createClickableBreadcrumb(item) {
   const parts = ['Home'];
@@ -968,7 +977,7 @@ function createClickableBreadcrumb(item) {
 
   return parts.map((part, index) => {
     const path = index === 0 ? '' : parts.slice(1, index + 1).join('/');
-    return `<span class="breadcrumb-link" data-path="${path}">${part}</span>`;
+    return `<span class="breadcrumb-link" data-path="${escHtml(path)}">${escHtml(part)}</span>`;
   }).join(' › ');
 }
 
@@ -1036,8 +1045,7 @@ function createDeleteButton(entry) {
   if (!check.allowed) {
     deleteBtn.disabled = true;
     deleteBtn.title    = check.reason;
-    deleteBtn.style.opacity = '0.5';
-    deleteBtn.style.cursor  = 'not-allowed';
+    deleteBtn.classList.add('btn--disabled');
   } else {
     deleteBtn.title = 'Delete';
   }

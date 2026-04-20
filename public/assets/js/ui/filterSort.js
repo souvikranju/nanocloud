@@ -4,6 +4,7 @@
 
 import { list as apiList } from '../nanocloudClient.js';
 import { getCurrentPath } from '../state.js';
+import { VIEW_MODE_STORAGE_KEY } from '../constants.js';
 
 // Constants
 const SORT_STORAGE_KEY = 'nanocloud_sort_mode';
@@ -26,6 +27,27 @@ let performSearchBtn = null;
 let gridViewBtn = null;
 let listViewBtn = null;
 
+// ── Injected callbacks (replaces window.* globals) ──────────────────────────
+// Set via the exported setters below.  Using explicit setters keeps cross-module
+// coupling visible and testable without polluting the global window object.
+let _onFilterChange = null;
+let _hideSearchModal = null;
+let _showError = null;
+let _showInfo = null;
+
+/** Register the callback that re-renders the file list when filter/sort changes. */
+export function setFilterSortCallback(fn) { _onFilterChange = fn; }
+
+/** Register the callback that closes the search modal. */
+export function setHideSearchModalCallback(fn) { _hideSearchModal = fn; }
+
+/** Register toast notification functions. */
+export function setToastCallbacks({ showError, showInfo } = {}) {
+  if (showError) _showError = showError;
+  if (showInfo)  _showInfo  = showInfo;
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 /**
  * Initialize filter and sort module
  * @param {Object} refs - DOM element references
@@ -40,16 +62,13 @@ export function initFilterSort(refs) {
   
   // Load saved sort preference
   loadSortPreference();
-  
+
   // Setup event handlers
   setupEventHandlers();
-  
+
   // Setup sort button handlers
   setupSortButtonHandlers();
-  
-  // Setup view mode handlers
-  setupViewModeHandlers();
-  
+
   // Setup cancel search handler
   setupCancelSearchHandler();
 }
@@ -111,8 +130,8 @@ function setupEventHandlers() {
       clearSearchBtn.classList.add('hidden');
       
       // Trigger re-render
-      if (window.filterSortCallback) {
-        window.filterSortCallback();
+      if (_onFilterChange) {
+        _onFilterChange();
       }
     });
   }
@@ -145,8 +164,8 @@ async function handleSearch(query) {
   if (!query) {
     searchMode = 'quick';
     deepSearchResults = [];
-    if (window.filterSortCallback) {
-      window.filterSortCallback();
+    if (_onFilterChange) {
+      _onFilterChange();
     }
     return;
   }
@@ -162,13 +181,13 @@ async function handleSearch(query) {
     deepSearchResults = [];
     
     // Close modal
-    if (window.hideSearchModal) {
-      window.hideSearchModal();
+    if (_hideSearchModal) {
+      _hideSearchModal();
     }
     
     // Trigger re-render
-    if (window.filterSortCallback) {
-      window.filterSortCallback();
+    if (_onFilterChange) {
+      _onFilterChange();
     }
   }
 }
@@ -179,8 +198,8 @@ async function handleSearch(query) {
  */
 async function performDeepSearch(query) {
   if (!query) {
-    if (window.showError) {
-      window.showError('Please enter a search term');
+    if (_showError) {
+      _showError('Please enter a search term');
     }
     return;
   }
@@ -192,8 +211,8 @@ async function performDeepSearch(query) {
   deepSearchResults = [];
   
   // Close search modal
-  if (window.hideSearchModal) {
-    window.hideSearchModal();
+  if (_hideSearchModal) {
+    _hideSearchModal();
   }
   
   // Show progress banner
@@ -212,26 +231,26 @@ async function performDeepSearch(query) {
         updateSearchProgress(deepSearchResults.length);
         
         // Trigger re-render with current results
-        if (window.filterSortCallback) {
-          window.filterSortCallback();
+        if (_onFilterChange) {
+          _onFilterChange();
         }
       },
       abortController.signal
     );
     
     // Search completed
-    if (window.showInfo) {
-      window.showInfo(`Search complete: Found ${deepSearchResults.length} items matching "${query}"`);
+    if (_showInfo) {
+      _showInfo(`Search complete: Found ${deepSearchResults.length} items matching "${query}"`);
     }
   } catch (error) {
     if (error.name === 'AbortError') {
-      if (window.showInfo) {
-        window.showInfo(`Search canceled: Found ${deepSearchResults.length} items before cancellation`);
+      if (_showInfo) {
+        _showInfo(`Search canceled: Found ${deepSearchResults.length} items before cancellation`);
       }
     } else {
       console.error('Deep search failed:', error);
-      if (window.showError) {
-        window.showError('Search failed: ' + error.message);
+      if (_showError) {
+        _showError('Search failed: ' + error.message);
       }
     }
   } finally {
@@ -468,8 +487,8 @@ function setupSortButtonHandlers() {
         updateSortButtonStates();
         
         // Trigger re-render
-        if (window.filterSortCallback) {
-          window.filterSortCallback();
+        if (_onFilterChange) {
+          _onFilterChange();
         }
       }
     });
@@ -490,75 +509,6 @@ function updateSortButtonStates() {
   });
 }
 
-/**
- * Setup view mode handlers
- */
-function setupViewModeHandlers() {
-  if (gridViewBtn) {
-    gridViewBtn.addEventListener('click', () => {
-      setViewMode('grid');
-    });
-  }
-  
-  if (listViewBtn) {
-    listViewBtn.addEventListener('click', () => {
-      setViewMode('list');
-    });
-  }
-}
-
-/**
- * Set view mode
- * @param {string} mode - 'grid' or 'list'
- */
-function setViewMode(mode) {
-  const fileList = document.getElementById('fileList');
-  if (!fileList) return;
-  
-  if (mode === 'grid') {
-    fileList.classList.remove('file-list');
-    fileList.classList.add('file-grid');
-  } else {
-    fileList.classList.remove('file-grid');
-    fileList.classList.add('file-list');
-  }
-  
-  // Update button states in both toolbar and modal
-  updateViewModeButtonStates(mode);
-  
-  // Save preference
-  localStorage.setItem('nanocloud_view_mode', mode);
-  
-  // Trigger re-render
-  if (window.filterSortCallback) {
-    window.filterSortCallback();
-  }
-}
-
-/**
- * Update view mode button states
- * @param {string} mode - 'grid' or 'list'
- */
-function updateViewModeButtonStates(mode) {
-  const allGridBtns = document.querySelectorAll('#gridViewBtn, [data-view="grid"]');
-  const allListBtns = document.querySelectorAll('#listViewBtn, [data-view="list"]');
-  
-  allGridBtns.forEach(btn => {
-    if (mode === 'grid') {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
-  
-  allListBtns.forEach(btn => {
-    if (mode === 'list') {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
-}
 
 /**
  * Get current sort mode
@@ -603,8 +553,8 @@ export function removeSearchResult(id) {
   deepSearchResults = deepSearchResults.filter(item => (item.fullPath || item.name) !== id);
   
   // Trigger re-render
-  if (window.filterSortCallback) {
-    window.filterSortCallback();
+  if (_onFilterChange) {
+    _onFilterChange();
   }
 }
 
@@ -631,8 +581,8 @@ export function renameSearchResult(id, newName) {
     }
     
     // Trigger re-render
-    if (window.filterSortCallback) {
-      window.filterSortCallback();
+    if (_onFilterChange) {
+      _onFilterChange();
     }
   }
 }

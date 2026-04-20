@@ -58,10 +58,18 @@ $mimeType = getMimeTypeForFile($filePath, $sanitizedFilename);
 // Determine Content-Disposition based on file type
 $contentDisposition = shouldStreamInBrowser($sanitizedFilename) ? 'inline' : 'attachment';
 
+// Prevent browsers from MIME-sniffing away from the declared Content-Type
+header('X-Content-Type-Options: nosniff');
+
+// Use RFC 5987 percent-encoded filename* parameter.
+// addslashes() is not a valid HTTP header escaping mechanism and can produce
+// malformed headers for non-ASCII filenames or names containing newlines.
+$encodedFilename = rawurlencode($sanitizedFilename);
+
 // Set headers
 header('Content-Type: ' . $mimeType);
 header('Content-Length: ' . $fileSize);
-header('Content-Disposition: ' . $contentDisposition . '; filename="' . addslashes($sanitizedFilename) . '"');
+header("Content-Disposition: {$contentDisposition}; filename*=UTF-8''{$encodedFilename}");
 header('Accept-Ranges: bytes');
 header('Cache-Control: public, max-age=3600');
 
@@ -155,9 +163,10 @@ function shouldStreamInBrowser(string $filename): bool
         return true;
     }
     
-    // Text files - viewable in browser
-    $textExts = ['txt', 'json', 'xml', 'html', 'css', 'js', 'md'];
-    if (in_array($ext, $textExts, true)) {
+    // Text files safe to view inline — excludes html/js/css which would execute
+    // in the browser's origin and enable stored-XSS if a user uploaded malicious content.
+    $inlineTextExts = ['txt', 'json', 'xml', 'md'];
+    if (in_array($ext, $inlineTextExts, true)) {
         return true;
     }
     

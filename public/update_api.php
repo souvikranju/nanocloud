@@ -436,7 +436,13 @@ function deploy_update(): array
     
     $rootDir = dirname(__DIR__);
     
-    $excludes = array_map(fn($path) => "--exclude='{$path}'", $PRESERVE_PATHS);
+    // Each exclude path must be individually shell-escaped.  String interpolation
+    // inside single quotes is not a safe substitute — a path containing a single
+    // quote or shell metacharacter would break the command or enable injection.
+    $excludes = array_map(
+        fn($path) => '--exclude=' . escapeshellarg($path),
+        $PRESERVE_PATHS
+    );
     $excludeStr = implode(' ', $excludes);
     
     $cmd = sprintf(
