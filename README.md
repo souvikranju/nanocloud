@@ -174,7 +174,7 @@ NanoCloud automatically uses chunked uploads for files larger than 2MB, enabling
 | Action | Result |
 |--------|--------|
 | Mouse back button | Navigate up one directory (clears selection if active) |
-| Browser back / swipe-back | Navigate up one directory (clears selection if active) |
+| Browser back / swipe-back | Navigate to previous folder (via browser history) |
 
 ### Touch Gestures
 
